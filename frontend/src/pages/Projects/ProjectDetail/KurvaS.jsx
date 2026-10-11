@@ -151,13 +151,6 @@ export default function KurvaS({ selectedProject }) {
     return new Date(dateString).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
-  const formatDateSlash = (dateStr) => {
-    if (!dateStr) return '-';
-    const parts = dateStr.split('-');
-    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    return dateStr;
-  };
-
   const fetchSchedule = async (silent = false) => {
     if (!silent) setIsLoading(true);
     try {
@@ -305,27 +298,9 @@ export default function KurvaS({ selectedProject }) {
   };
 
   // =========================================================================
-  // PERBAIKAN: FORMAT MAPPING DATA DARI BACKEND
+  // OPTIMASI: AMBIL DATA LANGSUNG DARI BACKEND
   // =========================================================================
-  const fullChartData = useMemo(() => {
-    if (!scheduleData || !scheduleData.full_chart_data) return [];
-    
-    return scheduleData.full_chart_data.map(item => ({
-      hariKe: item.hariKe || item.hari_ke,
-      label: item.label,
-      dateString: item.dateString || item.date_string,
-      dateSlash: item.dateSlash || item.date_slash,
-      displayDate: item.displayDate || item.display_date,
-      shortDate: item.shortDate || item.short_date,
-      mingguKe: item.mingguKe || item.minggu_ke,
-      targetKumulatifMingguan: item.targetKumulatifMingguan || item.target_kumulatif_mingguan,
-      rencanaKumulatif: item.rencanaKumulatif || item.rencana_kumulatif,
-      bobotRealisasi: item.bobotRealisasi || item.bobot_realisasi,
-      realisasiKumulatif: item.realisasiKumulatif || item.realisasi_kumulatif,
-      deviasiKumulatif: item.deviasiKumulatif || item.deviasi_kumulatif,
-      hasReportToday: item.hasReportToday || item.has_report_today
-    }));
-  }, [scheduleData]);
+  const fullChartData = scheduleData?.full_chart_data || [];
 
   const chartData = useMemo(() => {
     if (fullChartData.length === 0) return [];
@@ -364,7 +339,6 @@ export default function KurvaS({ selectedProject }) {
     }
     return aggregated;
   }, [fullChartData, startDateFilter, endDateFilter, filterMode]);
-  // =========================================================================
 
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
@@ -574,8 +548,6 @@ export default function KurvaS({ selectedProject }) {
             <button onClick={() => navigate(`/projects/${projectId}/peta-gis`, { state: project })} className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap">
               <Compass className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span className="hidden sm:inline">Peta GIS</span>
             </button>
-            
-            {/* TAMBAHAN TAB GALLERY BARU */}
             <button onClick={() => navigate(`/projects/${projectId}/gallery`, { state: project })} className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0">
               <ImageIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span className="hidden sm:inline">Gallery</span>
             </button>
