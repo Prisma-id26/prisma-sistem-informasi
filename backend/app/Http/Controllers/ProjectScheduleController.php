@@ -101,7 +101,6 @@ class ProjectScheduleController extends Controller
                     ->where('daily_reports.status', 'approved')
                     ->select('daily_report_activities.rab_item_id', 'daily_reports.minggu_ke', DB::raw('SUM(daily_report_activities.persentase) as total_persen'))
                     ->groupBy('daily_report_activities.rab_item_id', 'daily_reports.minggu_ke')
-                    // ->having('total_persen', '>', 0) // DIHAPUS AGAR ITEM 0% TETAP MUNCUL
                     ->get();
 
                 foreach ($aggregatedActuals as $r) {
@@ -109,7 +108,7 @@ class ProjectScheduleController extends Controller
                     $minggu = $r->minggu_ke ?? 0;
                     $persen = (float) $r->total_persen;
 
-                    if ($itemId) {
+                    if ($itemId) { 
                         if (!isset($matrix_actual[$itemId])) $matrix_actual[$itemId] = [];
                         $matrix_actual[$itemId][$minggu] = $persen;
 
@@ -191,7 +190,7 @@ class ProjectScheduleController extends Controller
     private function prepareExportData($projectId, $request)
     {
         $this->autoHealLegacyManualItems($projectId);
-
+        
         $projectInfo = DB::table('projects')->where('id', $projectId)->first();
         $grandTotalRAB = $this->progressService->calculateTotalProjectValue($projectId);
 
@@ -208,7 +207,6 @@ class ProjectScheduleController extends Controller
                 ->where('daily_reports.status', 'approved')
                 ->select('daily_report_activities.rab_item_id', 'daily_reports.minggu_ke', DB::raw('SUM(daily_report_activities.persentase) as total_persen'))
                 ->groupBy('daily_report_activities.rab_item_id', 'daily_reports.minggu_ke')
-                // ->having('total_persen', '>', 0) // DIHAPUS AGAR ITEM 0% TETAP TEREKSPOR
                 ->get();
 
             foreach ($aggregatedActuals as $r) {
@@ -227,9 +225,19 @@ class ProjectScheduleController extends Controller
             }
         } catch (Throwable $th) {}
 
-        $rabCategories = DB::table('rab_categories')->where('project_id', $projectId)->get();
-        $categoryIds = $rabCategories->pluck('id')->toArray();
+        // Mengambil SELURUH data RAB agar format ekspor persis seperti di Tabel UI
+        $showAddendum = filter_var($request->show_addendum, FILTER_VALIDATE_BOOLEAN);
 
+        $rabCatQuery = DB::table('rab_categories')->where('project_id', $projectId);
+        
+        // JIKA ADDENDUM DISEMBUNYIKAN DI UI, MAKA EKSPOR JUGA TIDAK MENGAMBILNYA
+        if (!$showAddendum) {
+            $rabCatQuery->where('nama_kategori', '!=', 'PEKERJAAN TAMBAHAN (ADDENDUM)');
+        }
+
+        $rabCategories = $rabCatQuery->get();
+        $categoryIds = $rabCategories->pluck('id')->toArray();
+        
         $rabItems = collect([]);
         if (!empty($categoryIds)) $rabItems = DB::table('rab_items')->whereIn('rab_category_id', $categoryIds)->get();
 

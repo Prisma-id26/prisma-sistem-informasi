@@ -72,6 +72,9 @@ export default function KurvaS({ selectedProject }) {
     id: Date.now(), minggu_ke: 1, bulan: 1, tanggal_mulai: '', tanggal_selesai: '', target_kumulatif: '' 
   }]);
 
+  // STATE UNTUK TOGGLE ADDENDUM
+  const [showAddendum, setShowAddendum] = useState(false);
+
   const handleInitialWeekChange = (id, field, value) => {
     setWeeksForm(weeksForm.map(w => w.id === id ? { ...w, [field]: value } : w));
   };
@@ -374,7 +377,6 @@ export default function KurvaS({ selectedProject }) {
               finalRealisasiKumulatif = null; 
           } else {
               finalRealisasiKumulatif = getSafeFloat(cumRealisasi);
-              // Hitung Deviasi jika Target dan Aktual sama-sama ada
               if (targetKumulatifMingguan !== null) {
                   finalDeviasi = getSafeFloat(cumRealisasi - targetKumulatifMingguan);
               }
@@ -423,7 +425,6 @@ export default function KurvaS({ selectedProject }) {
     setChartData(aggregated);
   }, [fullChartData, startDateFilter, endDateFilter, filterMode]);
 
-  // CUSTOM TOOLTIP UNTUK MENG-HANDLE FORMAT DEVIASI (BIAR RAPI JIKA MINUS)
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const dataInfo = payload[0].payload;
@@ -432,13 +433,10 @@ export default function KurvaS({ selectedProject }) {
           <p className="font-extrabold text-slate-800 dark:text-white mb-2 pb-2 border-b border-slate-200 dark:border-slate-700">{dataInfo.tooltipLabel}</p>
           {payload.map((entry, index) => {
             if (entry.value === undefined || entry.value === null) return null; 
-            
-            // Format khusus jika baris ini adalah Deviasi
             let valText = `${getSafeFloat(entry.value).toFixed(2)}%`;
             if (entry.dataKey === 'deviasiKumulatif') {
                 valText = entry.value > 0 ? `+${valText}` : valText;
             }
-
             return (
               <div key={index} className="flex justify-between items-center gap-6 font-medium mb-1.5 last:mb-0">
                 <div className="flex items-center gap-1.5">
@@ -449,6 +447,15 @@ export default function KurvaS({ selectedProject }) {
               </div>
             );
           })}
+          
+          {dataInfo.realisasiKumulatif !== null && dataInfo.targetKumulatifMingguan !== null && (
+             <div className="flex justify-between items-center gap-6 font-medium mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+               <span className="text-slate-600 dark:text-slate-300">Deviasi</span>
+               <span className={`font-mono font-bold ${(dataInfo.realisasiKumulatif - dataInfo.targetKumulatifMingguan) < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                 {(dataInfo.realisasiKumulatif - dataInfo.targetKumulatifMingguan) > 0 ? '+' : ''}{(dataInfo.realisasiKumulatif - dataInfo.targetKumulatifMingguan).toFixed(2)}%
+               </span>
+             </div>
+          )}
         </div>
       );
     }
@@ -490,7 +497,8 @@ export default function KurvaS({ selectedProject }) {
         chart_image: base64Image,
         start_date: startDateFilter,
         end_date: endDateFilter,
-        view_mode: filterMode.toLowerCase()
+        view_mode: filterMode.toLowerCase(),
+        show_addendum: showAddendum // <-- Disuntikkan agar dibaca backend
       }, { responseType: 'blob' });
 
       const safeLabel = getActiveFilterLabel().replace(/[^a-zA-Z0-9]/g, '_');
@@ -750,6 +758,7 @@ export default function KurvaS({ selectedProject }) {
             scheduleData={scheduleData} localWeeks={localWeeks} isEditMode={isEditMode}
             canCreateData={canCreateData} grandTotalRAB={grandTotalRAB} handleWeekCumulativeChange={handleWeekCumulativeChange}
             openWeekModal={openWeekModal} handleRemoveWeek={handleRemoveWeek} onRefresh={clearCacheAndFetch}
+            showAddendum={showAddendum} setShowAddendum={setShowAddendum} userRole={userRole}
           />
         </div>
       )}

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Target, Info, Activity, CheckCircle2, Clock, X, CalendarDays, Inbox, Plus, Trash2, Edit3, Check, Loader2 } from 'lucide-react';
+import { Target, Info, Activity, CheckCircle2, Clock, X, CalendarDays, Inbox, Plus, Trash2, Edit3, Check, Loader2, Eye, EyeOff } from 'lucide-react';
 import api from '../../../../api';
 
 export default function ScheduleWorkData({
   scheduleData, localWeeks, isEditMode, canCreateData, grandTotalRAB,
-  handleWeekCumulativeChange, openWeekModal, handleRemoveWeek, onRefresh
+  handleWeekCumulativeChange, openWeekModal, handleRemoveWeek, onRefresh,
+  showAddendum, setShowAddendum, userRole
 }) {
   const [detailModal, setDetailModal] = useState({ show: false, item: null, weekNum: null, targetPlan: 0, realizations: [] });
   const [inlineEditId, setInlineEditId] = useState(null);
@@ -29,6 +30,22 @@ export default function ScheduleWorkData({
     const filteredItems = items.filter(item => cumulativeActualMap[item.id] !== undefined);
     return { ...cat, items: filteredItems };
   }).filter(cat => cat.items.length > 0);
+
+  // =========================================================================
+  // LOGIKA PENGHILANGAN / PENAMPILAN ADDENDUM
+  // =========================================================================
+  const ADDENDUM_NAME = 'PEKERJAAN TAMBAHAN (ADDENDUM)';
+  const hasAddendum = safeRabData.some(cat => cat.nama_kategori === ADDENDUM_NAME);
+
+  let displayRabData = safeRabData;
+  if (!showAddendum) {
+      displayRabData = displayRabData.filter(cat => cat.nama_kategori !== ADDENDUM_NAME);
+  } else {
+      const normalData = displayRabData.filter(cat => cat.nama_kategori !== ADDENDUM_NAME);
+      const addenData = displayRabData.filter(cat => cat.nama_kategori === ADDENDUM_NAME);
+      displayRabData = [...normalData, ...addenData];
+  }
+  // =========================================================================
 
   const handleOpenCellDetail = (item, weekNum) => {
     const targetVal = getSafeFloat(safeLocalWeeks.find(w => parseInt(w.minggu_ke) === weekNum)?.target_kumulatif);
@@ -95,6 +112,23 @@ export default function ScheduleWorkData({
     <>
       <style>{`.custom-scrollbar::-webkit-scrollbar { height: 5px; width: 5px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; } .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #475569; } .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #f59e0b; cursor: pointer;}`}</style>
       
+      {/* TOMBOL TOGGLE ADDENDUM UNTUK ADMIN */}
+      {userRole === 'Administrator' && hasAddendum && (
+        <div className="flex justify-end mb-2 animate-fade-in">
+          <button 
+            onClick={() => setShowAddendum(!showAddendum)}
+            className={`flex items-center justify-center gap-1.5 p-2 px-3 rounded-lg text-[10px] font-bold border transition-all shadow-sm ${
+              showAddendum 
+              ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-300 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400' 
+              : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+            }`}
+          >
+            {showAddendum ? <EyeOff className="w-4 h-4"/> : <Eye className="w-4 h-4"/>}
+            <span>{showAddendum ? 'Sembunyikan Pekerjaan Tambahan' : 'Tampilkan Pekerjaan Tambahan'}</span>
+          </button>
+        </div>
+      )}
+
       <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl shadow-sm flex flex-col relative z-0 backdrop-blur-sm transition-all animate-fade-in w-full max-h-[calc(100vh-250px)] overflow-hidden">
         <div className="overflow-auto custom-scrollbar flex-1 w-full relative">
           <table className="w-full text-left border-collapse min-w-max text-xs">
@@ -130,7 +164,7 @@ export default function ScheduleWorkData({
             </thead>
 
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/30 text-slate-700 dark:text-slate-300">
-              {safeRabData.length === 0 ? (
+              {displayRabData.length === 0 ? (
                 <tr>
                   <td colSpan={weeksArray.length + (isEditMode && canCreateData ? 6 : 5)} className="p-10 text-center bg-white dark:bg-slate-800/40">
                     <div className="flex flex-col items-center justify-center max-w-md mx-auto border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-6">
@@ -143,7 +177,7 @@ export default function ScheduleWorkData({
                   </td>
                 </tr>
               ) : (
-                safeRabData.map(cat => {
+                displayRabData.map(cat => {
                   const safeItems = Array.isArray(cat?.items) ? cat.items : (cat?.items ? Object.values(cat.items) : []);
                   return (
                     <React.Fragment key={cat.id || Math.random()}>
