@@ -194,7 +194,6 @@ export default function TabelRAB({
 
             {canViewPrices && (
               <div className="bg-slate-50 dark:bg-slate-900 px-4 py-3 border-t border-slate-200 dark:border-slate-700/80 flex flex-col md:flex-row md:items-center justify-end gap-3 md:gap-6 text-xs">
-                <span className="font-extrabold text-slate-700 dark:text-slate-400 uppercase text-[10px]">Subtotal {divisi.nama_kategori}</span>
                 <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-2 font-mono font-bold w-full md:w-auto">
                   
                   {/* Rencana Divisi */}
