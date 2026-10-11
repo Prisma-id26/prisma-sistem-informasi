@@ -3,7 +3,7 @@ import { DollarSign, FileSpreadsheet, Activity, TrendingDown } from 'lucide-reac
 
 export default function SummaryRAB({ 
   paguKontrak, grandTotalRencana, grandTotalRealisasi, 
-  pctRencanaRaw, pctRealisasiRaw, pctRencanaCSS, pctRealisasiCSS, isRencanaBigger, isEditMode, formatRupiah, isLoading 
+  pctRencanaRaw, pctRealisasiRaw, pctRencanaCSS, pctRealisasiCSS, isRencanaBigger, formatRupiah, isLoading 
 }) {
   
   const [userRole, setUserRole] = useState('Tamu');
@@ -15,7 +15,7 @@ export default function SummaryRAB({
   const canViewPrices = ['Administrator', 'Direktur'].includes(userRole);
   if (!canViewPrices) return null; 
 
-  // PERBAIKAN: Memaksa konversi tipe data ke Number agar tidak terjadi penggabungan string
+  // Memaksa konversi tipe data ke Number agar tidak terjadi penggabungan string
   const grandTotalRencanaNum = Number(grandTotalRencana) || 0;
   const grandTotalRealisasiNum = Number(grandTotalRealisasi) || 0;
 
@@ -27,6 +27,9 @@ export default function SummaryRAB({
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
       
       {/* CARD 1: Pagu Kontrak */}
+      {/* Jika kamu ingin menyorot (highlight) Pagu Kontrak saat mode Edit,
+          kamu bisa menambahkan prop isEditMode dari atas lalu menambahkannya di className ini.
+          Tapi karena kamu tidak mengirim isEditMode lagi, ini dibiarkan default. */}
       <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-xl p-4 md:p-5 shadow-sm flex flex-col justify-center">
         <span className="text-slate-500 dark:text-slate-400 text-[11px] font-medium flex items-center gap-1.5 mb-1.5 uppercase tracking-wider"><DollarSign className="w-4 h-4 text-amber-500" /> Total Pagu Kontrak</span>
         <p className="text-lg md:text-xl font-bold text-slate-800 dark:text-white truncate font-mono" title={formatRupiah(paguKontrak)}>
@@ -35,7 +38,8 @@ export default function SummaryRAB({
       </div>
 
       {/* CARD 2: Total Rencana (Split View) */}
-      <div className={`bg-white dark:bg-slate-800/60 border ${isEditMode ? 'border-blue-400/50 bg-blue-50/20 dark:bg-blue-900/10' : 'border-slate-200 dark:border-slate-700/60'} rounded-xl p-4 md:p-5 shadow-sm flex flex-col justify-center transition-colors`}>
+      {/* TELAH DIPERBAIKI: Menghapus logika isEditMode agar warna kotak tetap stabil (statis) */}
+      <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-xl p-4 md:p-5 shadow-sm flex flex-col justify-center transition-colors">
         <span className="text-slate-500 dark:text-slate-400 text-[11px] font-medium flex items-center gap-1.5 mb-2.5 uppercase tracking-wider"><FileSpreadsheet className="w-4 h-4 text-blue-500" /> Total Rencana (RAB)</span>
         <div className="flex items-center justify-between gap-2">
           <div className="flex-1">
