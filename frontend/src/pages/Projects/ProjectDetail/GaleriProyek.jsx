@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import api from '../../../api'; 
 import { 
   Info, FileSpreadsheet, TrendingUp, Compass, Image as ImageIcon,
-  Loader2, AlertTriangle, Calendar, User, Search, X, ZoomIn, Download, Camera, LayoutGrid
+  Loader2, AlertTriangle, Calendar, User, X, ZoomIn, Download, Camera, Filter
 } from 'lucide-react';
 
 // CACHE MEMORI: Simpan data galeri per ID Proyek
@@ -35,8 +35,10 @@ export default function GaleriProyek() {
   const [isLoading, setIsLoading] = useState(!hasCachedFullData);
   const [errorMsg, setErrorMsg] = useState('');
   
-  // State untuk Filter & Pencarian
+  // State untuk Filter Pop-up (Mode Tag Ungu)
   const [selectedWeek, setSelectedWeek] = useState('Semua');
+  const [showFilterPopup, setShowFilterPopup] = useState(false);
+  const filterRef = useRef(null);
 
   // State untuk Modal Preview (Lightbox)
   const [previewPhoto, setPreviewPhoto] = useState(null);
@@ -99,6 +101,17 @@ export default function GaleriProyek() {
     }
   };
 
+  // Tutup popup jika user klik area luar popup filter
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (filterRef.current && !filterRef.current.contains(event.target)) {
+        setShowFilterPopup(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // Jalankan fetchData: Silent update jika data sudah ada di cache
   useEffect(() => {
     fetchData(hasCachedFullData);
@@ -157,22 +170,54 @@ export default function GaleriProyek() {
         {/* CONTAINER KONTROL: BERTUMPUK DI MOBILE & TABLET, SEJAJAR DI DESKTOP */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
           
-          {/* BOKS KIRI: KONTROL FILTER */}
-          <div className="flex items-center justify-between sm:justify-start gap-2 bg-white dark:bg-slate-800/80 px-2.5 h-10 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-x-auto custom-scrollbar z-30 transition-all shrink-0">
-            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider shrink-0 flex items-center gap-1.5">
-              <LayoutGrid className="w-3.5 h-3.5" /> Filter Minggu:
-            </span>
-            <select
-              value={selectedWeek}
-              onChange={(e) => setSelectedWeek(e.target.value)}
-              disabled={isLoading || availableWeeks.length === 0}
-              className="bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-bold rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50 cursor-pointer"
-            >
-              <option value="Semua">Semua Minggu</option>
-              {availableWeeks.map(w => (
-                <option key={w} value={w}>Minggu Ke-{w}</option>
-              ))}
-            </select>
+          {/* BOKS KIRI: KONTROL FILTER DENGAN POPUP TAG UNGU */}
+          <div className="flex items-center justify-between sm:justify-start gap-1 bg-white dark:bg-slate-800/80 px-1.5 h-10 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-visible z-30 transition-all shrink-0">
+            <div className="relative" ref={filterRef}>
+              <button 
+                disabled={isLoading || availableWeeks.length === 0} 
+                onClick={() => setShowFilterPopup(!showFilterPopup)} 
+                className={`flex items-center justify-center gap-1.5 px-2 sm:px-2.5 h-7 rounded-lg text-[10px] sm:text-[11px] font-bold border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                  showFilterPopup || selectedWeek !== 'Semua' 
+                  ? 'bg-purple-50 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/30 text-purple-600 dark:text-purple-400' 
+                  : 'bg-transparent border-transparent text-slate-600 dark:text-slate-300 hover:bg-purple-50 dark:hover:bg-purple-500/10 hover:text-purple-600 dark:hover:text-purple-400'
+                }`}
+              >
+                <Filter className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400 shrink-0" /> 
+                <span>Filter Gambar</span>
+              </button>
+              
+              {/* POPUP TAG SELEKSI MINGGU */}
+              {showFilterPopup && (
+                <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-2 w-64 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-4 z-50 animate-fade-in">
+                  <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Filter Berdasarkan Waktu</h4>
+                  <div className="flex flex-wrap gap-2">
+                    <button 
+                      onClick={() => { setSelectedWeek('Semua'); setShowFilterPopup(false); }} 
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                        selectedWeek === 'Semua' 
+                        ? 'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-500/50 shadow-sm' 
+                        : 'bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-purple-50 dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      Semua Waktu
+                    </button>
+                    {availableWeeks.map(w => (
+                      <button 
+                        key={w} 
+                        onClick={() => { setSelectedWeek(w); setShowFilterPopup(false); }} 
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                          selectedWeek === w 
+                          ? 'bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-500/50 shadow-sm' 
+                          : 'bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-purple-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        Minggu M-{w}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* BOKS KANAN: NAVIGASI TAB MENU (TAB GALLERY AKTIF) */}
@@ -225,6 +270,18 @@ export default function GaleriProyek() {
         </div>
       </div>
 
+      {/* BADGE FILTER AKTIF JIKA TIDAK SEMUA MINGGU */}
+      {selectedWeek !== 'Semua' && (
+        <div className="flex flex-wrap gap-2 animate-fade-in -mt-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-bold rounded-lg border border-purple-200 dark:border-purple-500/20 shadow-sm">
+            Menampilkan Gambar: Minggu Ke-{selectedWeek}
+            <button onClick={() => setSelectedWeek('Semua')} className="hover:bg-purple-200 dark:hover:bg-purple-500/30 p-0.5 rounded-full transition-colors ml-1">
+              <X className="w-3 h-3"/>
+            </button>
+          </span>
+        </div>
+      )}
+
       {/* ============================================================== */}
       {/* KONTEN UTAMA: GALERI GRID                                      */}
       {/* ============================================================== */}
@@ -246,9 +303,13 @@ export default function GaleriProyek() {
           <div className="w-20 h-20 bg-slate-50 dark:bg-slate-900 rounded-full flex items-center justify-center mb-4 border-2 border-dashed border-slate-200 dark:border-slate-700">
             <Camera className="w-8 h-8 text-slate-300 dark:text-slate-600" />
           </div>
-          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Belum Ada Foto Dokumentasi</h2>
+          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">
+            {selectedWeek !== 'Semua' ? `Tidak Ada Foto di Minggu Ke-${selectedWeek}` : 'Belum Ada Foto Dokumentasi'}
+          </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed">
-            Foto yang diunggah melalui Laporan Harian pengawas akan otomatis muncul di galeri ini.
+            {selectedWeek !== 'Semua' 
+              ? 'Silakan pilih rentang minggu yang lain.' 
+              : 'Foto yang diunggah melalui Laporan Harian pengawas akan otomatis muncul di galeri ini.'}
           </p>
         </div>
       ) : (
