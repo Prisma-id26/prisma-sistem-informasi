@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import api from '../../../api';
 import { 
-  TrendingUp, ArrowLeft, Info, FileSpreadsheet, Compass, Image as ImageIcon,
+  TrendingUp, ArrowLeft, Info, FileSpreadsheet, Compass, 
   Download, CheckCircle2, AlertTriangle, Loader2, Filter, X,
   CalendarDays, Edit3, Save, ListPlus, Target, Plus, Trash2, Calendar
 } from 'lucide-react';
@@ -34,18 +34,6 @@ export default function KurvaS({ selectedProject }) {
   const canCreateData = ['Administrator', 'Team Leader', 'Pengawas Lapangan'].includes(userRole);
   const isGuest = userRole === 'Tamu';
 
-  // =========================================================================
-  // OPTIMASI: DEFERRED RENDERING (Anti-Lag Pindah Tab)
-  // =========================================================================
-  const [isRenderingUI, setIsRenderingUI] = useState(true);
-
-  useEffect(() => {
-    setIsRenderingUI(true);
-    // Beri "nafas" 50ms ke browser agar UI navigasi tab berpindah instan tanpa nge-freeze
-    const timer = setTimeout(() => setIsRenderingUI(false), 50);
-    return () => clearTimeout(timer);
-  }, [projectId]);
-
   const getInitialSchedule = () => {
     if (cachedScheduleDetails[projectId]) return cachedScheduleDetails[projectId];
     return null;
@@ -72,6 +60,9 @@ export default function KurvaS({ selectedProject }) {
   const [filterSelection, setFilterSelection] = useState({ bulanLabel: '', mingguNum: '', rentangStart: '', rentangEnd: '' });
   const filterRef = useRef(null);
   
+  const [fullChartData, setFullChartData] = useState([]);
+  const [chartData, setChartData] = useState([]);
+
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [exportModal, setExportModal] = useState({ show: false, type: '' });
@@ -81,22 +72,13 @@ export default function KurvaS({ selectedProject }) {
     id: Date.now(), minggu_ke: 1, bulan: 1, tanggal_mulai: '', tanggal_selesai: '', target_kumulatif: '' 
   }]);
 
+  // STATE UNTUK TOGGLE ADDENDUM TABEL
   const [showAddendum, setShowAddendum] = useState(false);
 
+  // STATE UNTUK TOGGLE GARIS KURVA
   const [showPlanCurve, setShowPlanCurve] = useState(true);
   const [showActualCurve, setShowActualCurve] = useState(true);
   const [showDeviationCurve, setShowDeviationCurve] = useState(true);
-
-  const getCategoryStyle = (kat) => {
-    switch (kat) {
-      case 'Infrastruktur Jalan & Jembatan': return 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600';
-      case 'Gedung & Bangunan Sipil': return 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50';
-      case 'Sumber Daya Air & Irigasi': return 'bg-cyan-50 text-cyan-600 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-400 dark:border-cyan-800/50';
-      case 'Tata Lingkungan & Sanitasi': return 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50';
-      case 'Preservasi Jalan': return 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50';
-      default: return 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800/50';
-    }
-  };
 
   const handleInitialWeekChange = (id, field, value) => {
     setWeeksForm(weeksForm.map(w => w.id === id ? { ...w, [field]: value } : w));
@@ -315,33 +297,9 @@ export default function KurvaS({ selectedProject }) {
     return `Skala ${filterMode} | ${rangeLabel}`;
   };
 
-  // =========================================================================
-  // OPTIMASI: HYBRID DATA CALCULATION (Aman dari Bug Cache Kosong)
-  // =========================================================================
-  const fullChartData = useMemo(() => {
-    if (!scheduleData) return [];
+  useEffect(() => {
+    if (!scheduleData) return;
 
-    // 1. OPSI PERTAMA: Jika Backend sudah mengirim data matang, konversi key-nya dan gunakan!
-    if (scheduleData.full_chart_data && scheduleData.full_chart_data.length > 0) {
-      return scheduleData.full_chart_data.map(item => ({
-        hariKe: item.hariKe ?? item.hari_ke,
-        label: item.label,
-        dateString: item.dateString ?? item.date_string,
-        dateSlash: item.dateSlash ?? item.date_slash,
-        displayDate: item.displayDate ?? item.display_date,
-        shortDate: item.shortDate ?? item.short_date,
-        mingguKe: item.mingguKe ?? item.minggu_ke,
-        targetKumulatifMingguan: item.targetKumulatifMingguan ?? item.target_kumulatif_mingguan,
-        rencanaKumulatif: item.rencanaKumulatif ?? item.rencana_kumulatif,
-        bobotRealisasi: item.bobotRealisasi ?? item.bobot_realisasi,
-        realisasiKumulatif: item.realisasiKumulatif ?? item.realisasi_kumulatif,
-        deviasiKumulatif: item.deviasiKumulatif ?? item.deviasi_kumulatif,
-        hasReportToday: item.hasReportToday ?? item.has_report_today
-      }));
-    }
-
-    // 2. OPSI KEDUA: Jika data dari backend KOSONG (karena nyangkut di Cache lama),
-    // React akan langsung menghitungnya sebagai fallback agar grafik tidak Blank!
     const parseLocalDate = (dateStr) => {
       if (!dateStr) return new Date();
       const cleanStr = dateStr.split(' ')[0].split('T')[0];
@@ -443,12 +401,11 @@ export default function KurvaS({ selectedProject }) {
         realisasiKumulatif: finalRealisasiKumulatif, deviasiKumulatif: finalDeviasi, hasReportToday
       });
     }
-    
-    return tempChartData;
+    setFullChartData(tempChartData);
   }, [scheduleData]);
 
-  const chartData = useMemo(() => {
-    if (fullChartData.length === 0) return [];
+  useEffect(() => {
+    if (fullChartData.length === 0) return;
     let filtered = fullChartData;
     if (startDateFilter) filtered = filtered.filter(d => d.dateString >= startDateFilter);
     if (endDateFilter) filtered = filtered.filter(d => d.dateString <= endDateFilter);
@@ -482,7 +439,8 @@ export default function KurvaS({ selectedProject }) {
       });
       aggregated = Object.values(weekMap);
     }
-    return aggregated;
+    
+    setChartData(aggregated);
   }, [fullChartData, startDateFilter, endDateFilter, filterMode]);
 
   const CustomTooltip = ({ active, payload }) => {
@@ -513,6 +471,17 @@ export default function KurvaS({ selectedProject }) {
       );
     }
     return null;
+  };
+
+  const getCategoryStyle = (kat) => {
+    switch (kat) {
+      case 'Infrastruktur Jalan & Jembatan': return 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600';
+      case 'Gedung & Bangunan Sipil': return 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50';
+      case 'Sumber Daya Air & Irigasi': return 'bg-cyan-50 text-cyan-600 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-400 dark:border-cyan-800/50';
+      case 'Tata Lingkungan & Sanitasi': return 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50';
+      case 'Preservasi Jalan': return 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50';
+      default: return 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800/50';
+    }
   };
 
   const executeExport = async () => {
@@ -570,16 +539,6 @@ export default function KurvaS({ selectedProject }) {
   };
 
   const isScheduleEmpty = !scheduleData?.schedules || scheduleData.schedules.length === 0;
-
-  // RENDER INTERMEDIATE JIKA SEDANG DEFERRED RENDERING
-  if (isRenderingUI) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[40vh] w-full bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl shadow-sm animate-fade-in">
-        <Loader2 className="w-10 h-10 text-amber-500 animate-spin mb-4" />
-        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Menyusun Matriks Tabel & Grafik...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="w-full space-y-3.5 pb-2 relative animate-fade-in flex flex-col">
@@ -692,19 +651,16 @@ export default function KurvaS({ selectedProject }) {
           {/* BOKS KANAN: NAVIGASI TAB MENU */}
           <div className="flex items-center justify-between sm:justify-start gap-1 bg-white dark:bg-slate-800/80 px-1.5 h-10 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-x-auto custom-scrollbar z-0 shrink-0">
             <button onClick={() => navigate(`/projects/${projectId}/data`, { state: project })} className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap">
-              <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span className="hidden sm:inline">Data</span>
+              <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span>Data</span>
             </button>
             <button onClick={() => navigate(`/projects/${projectId}/rab`, { state: project })} className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap">
-              <FileSpreadsheet className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span className="hidden sm:inline">RAB</span>
+              <FileSpreadsheet className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span>RAB</span>
             </button>
             <button className="flex items-center justify-center gap-1.5 h-7 px-2.5 bg-amber-500 text-white dark:text-slate-950 text-[10px] sm:text-[11px] font-bold rounded-lg shadow-sm whitespace-nowrap cursor-default">
-              <TrendingUp className="w-3.5 h-3.5 shrink-0" /> <span className="hidden sm:inline">Kurva Schedule</span>
+              <TrendingUp className="w-3.5 h-3.5 shrink-0" /> <span>Kurva Schedule</span>
             </button>
             <button onClick={() => navigate(`/projects/${projectId}/peta-gis`, { state: project })} className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap">
-              <Compass className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span className="hidden sm:inline">Peta GIS</span>
-            </button>
-            <button onClick={() => navigate(`/projects/${projectId}/gallery`, { state: project })} className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0">
-              <ImageIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span className="hidden sm:inline">Gallery</span>
+              <Compass className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span>Peta GIS</span>
             </button>
           </div>
 
