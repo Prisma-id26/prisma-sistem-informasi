@@ -5,7 +5,7 @@ import {
   Search, Plus, Edit3, Trash2, Filter, X, 
   MapPin, Calendar, HardHat, CalendarDays,
   Loader2, AlertTriangle, Info, FileBox, CheckCircle2,
-  UploadCloud, FileSpreadsheet, Sparkles
+  UploadCloud, FileSpreadsheet, Sparkles, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 // CACHE MEMORI: Tampil instan saat berpindah menu
@@ -78,6 +78,12 @@ export default function ProjectList() {
   // HAK AKSES
   const [userRole, setUserRole] = useState('Tamu');
 
+  // ==========================================
+  // STATE PAGINASI
+  // ==========================================
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
   useEffect(() => {
     const userDataStr = localStorage.getItem('user_data');
     if (userDataStr) {
@@ -120,6 +126,7 @@ export default function ProjectList() {
       const response = await api.get('/projects');
       const dataProyek = response.data?.data || response.data || [];
       const safeData = Array.isArray(dataProyek) ? dataProyek : [];
+      
       setProjects(safeData);
       cachedProjects = safeData;
       try { sessionStorage.setItem('cached_projects_list', JSON.stringify(safeData)); } catch {}
@@ -238,6 +245,9 @@ export default function ProjectList() {
   const handleFilterChange = (key, value) => setFilters(prev => ({ ...prev, [key]: value }));
   const clearFilter = (key) => setFilters(prev => ({ ...prev, [key]: 'Semua' }));
 
+  // ==========================================
+  // PENGURUTAN, FILTERING & PAGINATION LOGIC
+  // ==========================================
   const filteredProjects = projects.filter((p) => {
     const query = searchQuery.toLowerCase();
     const matchSearch = 
@@ -252,6 +262,31 @@ export default function ProjectList() {
   });
 
   const visibleProjects = filteredProjects.filter(p => !stagedDeletions.includes(p.id));
+
+  // Pengurutan: Proyek Baru (NEW) di paling atas, sisanya urut berdasarkan tanggal dibuat (terbaru ke terlama)
+  const sortedProjects = [...visibleProjects].sort((a, b) => {
+    const isNewA = isProjectNew(a);
+    const isNewB = isProjectNew(b);
+
+    if (isNewA && !isNewB) return -1;
+    if (!isNewA && isNewB) return 1;
+
+    // Jika sama-sama baru atau sama-sama lama, urutkan tanggal (desc)
+    const dateA = new Date(a.created_at || 0);
+    const dateB = new Date(b.created_at || 0);
+    return dateB - dateA;
+  });
+
+  // Hitung Paginasi
+  const totalPages = Math.ceil(sortedProjects.length / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const currentItems = sortedProjects.slice(startIndex, startIndex + itemsPerPage);
+
+  // Jika user mengetik pencarian, otomatis kembali ke halaman 1
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filters]);
+
 
   return (
     <div className="space-y-6 w-full relative pb-20">
@@ -418,7 +453,7 @@ export default function ProjectList() {
         </div>
       )}
 
-      {/* KONTEN TABEL */}
+      {/* KONTEN TABEL & KARTU (Menampilkan currentItems bukan visibleProjects) */}
       {isLoading && projects.length === 0 ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh] w-full bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl shadow-sm animate-fade-in">
           <Loader2 className="w-10 h-10 text-amber-500 animate-spin mb-4" />
@@ -428,7 +463,7 @@ export default function ProjectList() {
         <>
           {/* TAMPILAN MOBILE (KARTU) */}
           <div className="block md:hidden space-y-4">
-            {visibleProjects.length > 0 ? visibleProjects.map((proj) => {
+            {currentItems.length > 0 ? currentItems.map((proj) => {
               const displayStatus = (isGuest && proj.status === 'Delayed') ? 'Berjalan' : (proj.status || 'Persiapan');
               const isDelayed = displayStatus === 'Delayed';
               const showNewBadge = isProjectNew(proj);
@@ -535,7 +570,7 @@ export default function ProjectList() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-xs text-slate-700 dark:text-slate-300">
-                  {visibleProjects.length > 0 ? visibleProjects.map((proj) => {
+                  {currentItems.length > 0 ? currentItems.map((proj) => {
                     const displayStatus = (isGuest && proj.status === 'Delayed') ? 'Berjalan' : (proj.status || 'Persiapan');
                     const isDelayed = displayStatus === 'Delayed';
                     const showNewBadge = isProjectNew(proj);
@@ -652,6 +687,51 @@ export default function ProjectList() {
               </table>
             </div>
           </div>
+
+          {/* KONTROL PAGINASI */}
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 bg-white dark:bg-slate-800/40 p-4 border border-slate-200 dark:border-slate-700/40 rounded-xl shadow-sm">
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                Menampilkan <strong className="text-slate-800 dark:text-slate-200">{startIndex + 1}</strong> hingga <strong className="text-slate-800 dark:text-slate-200">{Math.min(startIndex + itemsPerPage, sortedProjects.length)}</strong> dari <strong className="text-slate-800 dark:text-slate-200">{sortedProjects.length}</strong> Proyek
+              </span>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors shadow-sm"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Prev
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }).map((_, idx) => {
+                    const pageNum = idx + 1;
+                    // Hanya tampilkan max 5 halaman (sekitar halaman aktif)
+                    if (pageNum === 1 || pageNum === totalPages || (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)) {
+                      return (
+                        <button 
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-bold border transition-colors shadow-sm ${currentPage === pageNum ? 'bg-amber-500 text-white border-amber-600' : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600'}`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    } else if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+                      return <span key={pageNum} className="text-slate-400">...</span>;
+                    }
+                    return null;
+                  })}
+                </div>
+                <button 
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors shadow-sm"
+                >
+                  Next <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -659,6 +739,7 @@ export default function ProjectList() {
       <div className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/40 rounded-xl p-4 text-xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row sm:items-center gap-4 shadow-sm mt-2">
         <span className="font-semibold text-slate-700 dark:text-slate-300 shrink-0">Keterangan & Aksi:</span>
         <div className="flex flex-wrap gap-x-4 gap-y-2">
+          <span className="flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-rose-500"/> Proyek Baru (Belum Anda Buka)</span>
           <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div> Sesuai / Mendahului Rencana</span>
           <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-rose-500"></div> Delayed / Keterlambatan</span>
           <span className="flex items-center gap-1.5"><Info className="w-3.5 h-3.5 text-amber-500" /> Buka Data Utama</span>
