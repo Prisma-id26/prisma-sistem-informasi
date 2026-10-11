@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import html2canvas from 'html2canvas';
 import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import api from '../../../api';
@@ -60,9 +60,6 @@ export default function KurvaS({ selectedProject }) {
   const [filterSelection, setFilterSelection] = useState({ bulanLabel: '', mingguNum: '', rentangStart: '', rentangEnd: '' });
   const filterRef = useRef(null);
   
-  const [fullChartData, setFullChartData] = useState([]);
-  const [chartData, setChartData] = useState([]);
-
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [exportModal, setExportModal] = useState({ show: false, type: '' });
@@ -72,10 +69,8 @@ export default function KurvaS({ selectedProject }) {
     id: Date.now(), minggu_ke: 1, bulan: 1, tanggal_mulai: '', tanggal_selesai: '', target_kumulatif: '' 
   }]);
 
-  // STATE UNTUK TOGGLE ADDENDUM TABEL
   const [showAddendum, setShowAddendum] = useState(false);
 
-  // STATE UNTUK TOGGLE GARIS KURVA
   const [showPlanCurve, setShowPlanCurve] = useState(true);
   const [showActualCurve, setShowActualCurve] = useState(true);
   const [showDeviationCurve, setShowDeviationCurve] = useState(true);
@@ -154,13 +149,6 @@ export default function KurvaS({ selectedProject }) {
   const formatIndoDate = (dateString) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
-
-  const formatDateSlash = (dateStr) => {
-    if (!dateStr) return '-';
-    const parts = dateStr.split('-');
-    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    return dateStr;
   };
 
   const fetchSchedule = async (silent = false) => {
@@ -309,115 +297,13 @@ export default function KurvaS({ selectedProject }) {
     return `Skala ${filterMode} | ${rangeLabel}`;
   };
 
-  useEffect(() => {
-    if (!scheduleData) return;
+  // =========================================================================
+  // OPTIMASI: AMBIL DATA LANGSUNG DARI BACKEND
+  // =========================================================================
+  const fullChartData = scheduleData?.full_chart_data || [];
 
-    const parseLocalDate = (dateStr) => {
-      if (!dateStr) return new Date();
-      const cleanStr = dateStr.split(' ')[0].split('T')[0];
-      const [y, m, d] = cleanStr.split('-');
-      return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
-    };
-
-    const weekMap = {};
-    const safeSchedules = Array.isArray(scheduleData.schedules) ? scheduleData.schedules : (scheduleData.schedules ? Object.values(scheduleData.schedules) : []);
-    
-    safeSchedules.forEach(s => {
-      const w = parseInt(s.minggu_ke);
-      if (!weekMap[w]) weekMap[w] = { minggu_ke: w, bulan: s.bulan || null, tanggal_awal: s.tanggal_awal || null, tanggal_akhir: s.tanggal_akhir || null, target_kumulatif: 0 };
-      weekMap[w].target_kumulatif += getSafeFloat(s.target_kumulatif);
-      if (!weekMap[w].tanggal_awal && s.tanggal_awal) weekMap[w].tanggal_awal = s.tanggal_awal;
-      if (!weekMap[w].tanggal_akhir && s.tanggal_akhir) weekMap[w].tanggal_akhir = s.tanggal_akhir;
-    });
-
-    const sortedWeeks = Object.values(weekMap).sort((a, b) => a.minggu_ke - b.minggu_ke);
-
-    const dailyRealisasi = {};
-    const dailyRealisasiWeeks = {};
-    let maxReportedDayStr = '';
-
-    const safeRealizations = Array.isArray(scheduleData.realizations) ? scheduleData.realizations : (scheduleData.realizations ? Object.values(scheduleData.realizations) : []);
-
-    safeRealizations.forEach(r => {
-      if (!r.tgl_input) return;
-      const ymd = r.tgl_input.split('T')[0].split(' ')[0]; 
-      dailyRealisasi[ymd] = getSafeFloat(dailyRealisasi[ymd]) + getSafeFloat(r.bobot_realisasi);
-      if (r.minggu_ke) dailyRealisasiWeeks[ymd] = r.minggu_ke;
-      if (!maxReportedDayStr || ymd > maxReportedDayStr) maxReportedDayStr = ymd;
-    });
-
-    const pStart = scheduleData.project_info?.tanggal_mulai ? parseLocalDate(scheduleData.project_info.tanggal_mulai) : new Date(); pStart.setHours(0,0,0,0);
-    const pEnd = scheduleData.project_info?.tanggal_selesai ? parseLocalDate(scheduleData.project_info.tanggal_selesai) : new Date(pStart.getTime() + (30 * 24 * 3600 * 1000)); pEnd.setHours(0,0,0,0);
-
-    let minDate = new Date(pStart); let maxDate = new Date(pEnd);
-    sortedWeeks.forEach(w => {
-      if (w.tanggal_awal) { const d = parseLocalDate(w.tanggal_awal); if (d < minDate) minDate = d; }
-      if (w.tanggal_akhir) { const d = parseLocalDate(w.tanggal_akhir); if (d > maxDate) maxDate = d; }
-    });
-    if (maxReportedDayStr) { const d = parseLocalDate(maxReportedDayStr); if (d > maxDate) maxDate = d; }
-
-    minDate.setHours(0,0,0,0); maxDate.setHours(0,0,0,0);
-    const totalDays = Math.max(1, Math.floor((maxDate - minDate) / (1000 * 3600 * 24)) + 1);
-
-    const tempChartData = [];
-    let cumRealisasi = 0;
-    let hasAnyReportEver = safeRealizations.length > 0;
-
-    for (let i = 0; i < totalDays; i++) {
-      const currDate = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate() + i);
-      const yyyy = currDate.getFullYear();
-      const mm = String(currDate.getMonth() + 1).padStart(2, '0');
-      const dd = String(currDate.getDate()).padStart(2, '0');
-      const yyyymmdd = `${yyyy}-${mm}-${dd}`; 
-
-      const shortDate = currDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
-      const displayDate = currDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-      const dateSlash = formatDateSlash(yyyymmdd);
-
-      let matchedWeek = sortedWeeks.find(w => w.tanggal_awal && w.tanggal_akhir && yyyymmdd >= w.tanggal_awal && yyyymmdd <= w.tanggal_akhir);
-      let currentWeekNum = null;
-
-      if (dailyRealisasiWeeks[yyyymmdd]) {
-        currentWeekNum = parseInt(dailyRealisasiWeeks[yyyymmdd]);
-        if (!matchedWeek && weekMap[currentWeekNum]) matchedWeek = weekMap[currentWeekNum];
-      } else if (matchedWeek) {
-        currentWeekNum = matchedWeek.minggu_ke;
-      } else {
-        const diffFromStart = Math.floor((currDate - pStart) / (1000 * 3600 * 24));
-        currentWeekNum = diffFromStart >= 0 ? Math.floor(diffFromStart / 7) + 1 : 0;
-      }
-
-      const targetKumulatifMingguan = matchedWeek ? getSafeFloat(matchedWeek.target_kumulatif) : null;
-      const actVal = getSafeFloat(dailyRealisasi[yyyymmdd]);
-      const hasReportToday = dailyRealisasi[yyyymmdd] !== undefined;
-
-      if (hasReportToday) cumRealisasi += actVal;
-      
-      let finalRealisasiKumulatif = null;
-      let finalDeviasi = null;
-
-      if (hasAnyReportEver) {
-          if (maxReportedDayStr && yyyymmdd > maxReportedDayStr) {
-              finalRealisasiKumulatif = null; 
-          } else {
-              finalRealisasiKumulatif = getSafeFloat(cumRealisasi);
-              if (targetKumulatifMingguan !== null) {
-                  finalDeviasi = getSafeFloat(cumRealisasi - targetKumulatifMingguan);
-              }
-          }
-      }
-
-      tempChartData.push({
-        hariKe: i + 1, label: `H-${(i + 1).toString().padStart(2, '0')}`, dateString: yyyymmdd, dateSlash, displayDate, shortDate, mingguKe: currentWeekNum,
-        targetKumulatifMingguan, rencanaKumulatif: targetKumulatifMingguan, bobotRealisasi: actVal,
-        realisasiKumulatif: finalRealisasiKumulatif, deviasiKumulatif: finalDeviasi, hasReportToday
-      });
-    }
-    setFullChartData(tempChartData);
-  }, [scheduleData]);
-
-  useEffect(() => {
-    if (fullChartData.length === 0) return;
+  const chartData = useMemo(() => {
+    if (fullChartData.length === 0) return [];
     let filtered = fullChartData;
     if (startDateFilter) filtered = filtered.filter(d => d.dateString >= startDateFilter);
     if (endDateFilter) filtered = filtered.filter(d => d.dateString <= endDateFilter);
@@ -451,8 +337,7 @@ export default function KurvaS({ selectedProject }) {
       });
       aggregated = Object.values(weekMap);
     }
-    
-    setChartData(aggregated);
+    return aggregated;
   }, [fullChartData, startDateFilter, endDateFilter, filterMode]);
 
   const CustomTooltip = ({ active, payload }) => {
@@ -663,7 +548,7 @@ export default function KurvaS({ selectedProject }) {
             <button onClick={() => navigate(`/projects/${projectId}/peta-gis`, { state: project })} className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap">
               <Compass className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span className="hidden sm:inline">Peta GIS</span>
             </button>
-            <button onClick={() => navigate(`/projects/${projectId}/gallery`, { state: project })} className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0">
+            <button onClick={() => navigate(`/projects/${projectId}/gallery`, { state: project })} className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0">
               <ImageIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span className="hidden sm:inline">Gallery</span>
             </button>
           </div>
