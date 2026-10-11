@@ -4,29 +4,73 @@
     <meta charset="UTF-8">
     <title>Kurva S - {{ $project->nama_proyek }}</title>
     <style>
-        body { font-family: Arial, sans-serif; font-size: 10px; margin: 0; padding: 0; }
+        /* Pengaturan Kertas dan Font Dasar */
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 9px; /* Dikecilkan sedikit agar muat banyak kolom minggu */
+            margin: 0;
+            padding: 0;
+        }
+
         .page-break { page-break-after: always; }
+
+        /* CLASS GRAFIK FULL HALAMAN 1 */
         .chart-container { width: 100%; text-align: center; margin-bottom: 20px; }
         .chart-container h2 { margin-bottom: 5px; font-size: 16px; }
         .chart-container p { margin-top: 0; margin-bottom: 15px; font-size: 12px; color: #555; }
-        .chart-container img { width: 100%; height: auto; max-height: 160mm; object-fit: contain; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #333; padding: 4px; text-align: center; word-wrap: break-word; }
-        th { background-color: #f3f4f6; font-weight: bold; }
+        .chart-container img {
+            width: 100%;
+            height: auto;
+            max-height: 165mm;
+            object-fit: contain;
+        }
+
+        /* TABEL MATRIKS */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            table-layout: fixed; /* KUNCI PERBAIKAN: Memaksa tabel membagi ruang dengan benar */
+        }
+
+        th, td {
+            border: 1px solid #333;
+            padding: 4px 2px; /* Padding dikurangi agar hemat ruang */
+            text-align: center;
+            word-wrap: break-word;
+            vertical-align: middle;
+        }
+
+        th {
+            background-color: #f3f4f6;
+            font-weight: bold;
+        }
+
         .text-left { text-align: left; }
+
+        /* Pengaturan Lebar Kolom Proporsional */
+        .col-kode { width: 6%; }
+        .col-uraian { width: 25%; }
+        .col-bobot { width: 5%; }
+        .col-total { width: 6%; }
+        /* Kolom M-1, M-2, dst akan dibagi rata oleh sisa persentase secara otomatis */
     </style>
 </head>
 <body>
 
+    <!-- HALAMAN 1: GRAFIK -->
     @if(!empty($chartImageBase64))
     <div class="chart-container">
         <h2>GRAFIK KURVA S & JADWAL PROYEK</h2>
         <p>{{ strtoupper($project->nama_proyek) }}</p>
         <img src="{{ $chartImageBase64 }}" alt="Grafik Kurva S">
     </div>
+
+    <!-- PISAHKAN HALAMAN DI SINI -->
     <div class="page-break"></div>
     @endif
 
+    <!-- HALAMAN 2 DST: TABEL -->
     <div class="table-container">
         @if(empty($chartImageBase64))
             <h2 style="text-align:center; margin-bottom: 15px;">MATRIKS SCHEDULE PROYEK - {{ strtoupper($project->nama_proyek) }}</h2>
@@ -37,44 +81,44 @@
         <table>
             <thead>
                 <tr>
-                    <th rowspan="2" style="width: 5%;">Kode</th>
-                    <th rowspan="2" style="width: 25%;">Uraian Pekerjaan</th>
-                    <th rowspan="2" style="width: 5%;">Bobot</th>
+                    <th class="col-kode">Kode</th>
+                    <th class="col-uraian">Uraian Pekerjaan</th>
+                    <th class="col-bobot">Bobot</th>
                     @foreach($localWeeks as $w)
                         <th>M-{{ $w->minggu_ke }}</th>
                     @endforeach
-                    <th rowspan="2" style="width: 7%;">Total</th>
+                    <th class="col-total">Total</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($rabData as $divisi)
-                    <tr>
+                    <tr style="background-color: #f8fafc;">
                         <td class="text-left"><b>{{ $divisi['kode_divisi'] }}</b></td>
                         <td class="text-left" colspan="{{ count($localWeeks) + 2 }}"><b>{{ $divisi['nama_kategori'] }}</b></td>
                     </tr>
                     @foreach($divisi['items'] as $item)
                         @if($item->is_subheader)
-                            <tr>
+                            <tr style="background-color: #fdf6e3;">
                                 <td class="text-left" style="font-weight: bold; color: #d97706;">{{ $item->kode_pekerjaan }}</td>
                                 <td class="text-left" colspan="{{ count($localWeeks) + 2 }}"><b>{{ $item->uraian_pekerjaan }}</b></td>
                             </tr>
                         @else
                             <tr>
-                                <td class="text-left">{{ $item->kode_pekerjaan }}</td>
+                                <td class="text-left" style="font-size: 8px;">{{ $item->kode_pekerjaan }}</td>
                                 <td class="text-left">{{ $item->uraian_pekerjaan }}</td>
-                                <td>{{ number_format($item->bobot, 2) }}%</td>
+                                <td style="font-weight: bold;">{{ number_format($item->bobot, 2) }}%</td>
 
                                 @foreach($localWeeks as $w)
                                     @php
                                         $act = $matrix_actual[$item->id][$w->minggu_ke] ?? 0;
                                     @endphp
-                                    <td>{{ $act > 0 ? number_format($act, 2) : '-' }}</td>
+                                    <td style="font-size: 9px;">{{ $act > 0 ? number_format($act, 2) : '-' }}</td>
                                 @endforeach
 
                                 @php
                                     $cum = $cumulative_actual[$item->id] ?? 0;
                                 @endphp
-                                <td style="font-weight: bold;">{{ $cum > 0 ? number_format($cum, 2) . '%' : '-' }}</td>
+                                <td style="font-weight: bold; color: #059669;">{{ $cum > 0 ? number_format($cum, 2) . '%' : '-' }}</td>
                             </tr>
                         @endif
                     @endforeach
@@ -114,12 +158,12 @@
                             $runningActual += $wAct;
                             $showCum = ($maxReportedWeek > 0 && $w->minggu_ke <= $maxReportedWeek);
                             $devStr = '-';
-                            $color = '#4b5563';
+                            $color = '#4b5563'; // abu-abu standar
 
                             if ($showCum) {
                                 $dev = $runningActual - $w->target_kumulatif;
                                 $devStr = $dev > 0 ? '+'.number_format($dev, 2) : number_format($dev, 2);
-                                $color = $dev < 0 ? '#dc2626' : ($dev > 0 ? '#059669' : '#d97706');
+                                $color = $dev < 0 ? '#dc2626' : ($dev > 0 ? '#059669' : '#d97706'); // merah, hijau, oren
                             }
                         @endphp
                         <th style="color: {{ $color }};">{{ $devStr }}</th>
@@ -129,6 +173,5 @@
             </tfoot>
         </table>
     </div>
-
 </body>
 </html>

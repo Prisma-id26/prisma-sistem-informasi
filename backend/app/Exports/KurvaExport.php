@@ -4,70 +4,35 @@ namespace App\Exports;
 
 use Illuminate\Contracts\View\View;
 use Maatwebsite\Excel\Concerns\FromView;
-use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use Maatwebsite\Excel\Concerns\WithTitle;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 
-class KurvaExport implements FromView, WithStyles, WithEvents
+class KurvaExport implements FromView, WithTitle, ShouldAutoSize
 {
     protected $data;
 
-    public function __construct(array $data, ?string $imagePath = null)
+    public function __construct($data)
     {
         $this->data = $data;
     }
 
     public function view(): View
     {
-        $viewData = $this->data;
-        $viewData['isExcel'] = true;
-        return view('exports.kurva-s', $viewData);
+        // Mengekspor menggunakan layout blade yang sama dengan PDF
+        return view('exports.kurva-s', $this->data);
     }
 
-    public function styles(Worksheet $sheet)
+    public function title(): string
     {
-        $sheet->getColumnDimension('A')->setWidth(14);
-        $sheet->getColumnDimension('B')->setWidth(48);
-        $sheet->getColumnDimension('C')->setWidth(12);
+        $projectName = $this->data['project']->nama_proyek ?? 'Proyek';
 
-        $totalWeeks = isset($this->data['localWeeks']) ? count($this->data['localWeeks']) : 0;
-        $colIndex = 4;
+        // 1. Bersihkan karakter ilegal yang dilarang oleh Excel untuk penamaan sheet
+        $cleanName = str_replace(['*', ':', '/', '\\', '?', '[', ']'], '', $projectName);
 
-        for ($i = 0; $i < $totalWeeks; $i++) {
-            $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
-            $sheet->getColumnDimension($colLetter)->setWidth(10);
-            $colIndex++;
-        }
+        // 2. Gabungkan nama
+        $title = 'Kurva ' . $cleanName;
 
-        $lastColLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
-        $sheet->getColumnDimension($lastColLetter)->setWidth(16);
-
-        return [];
-    }
-
-    public function registerEvents(): array
-    {
-        return [
-            AfterSheet::class => function(AfterSheet $event) {
-                $sheet = $event->sheet->getDelegate();
-
-                $sheet->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_A3);
-                $sheet->getPageSetup()->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
-                $sheet->getPageSetup()->setFitToWidth(1);
-                $sheet->getPageSetup()->setFitToHeight(null);
-
-                $highestRow = $sheet->getHighestRow();
-                $highestCol = $sheet->getHighestColumn();
-
-                if ($highestRow > 0 && !empty($highestCol)) {
-                    $sheet->getStyle('A1:' . $highestCol . $highestRow)
-                          ->getAlignment()
-                          ->setVertical(Alignment::VERTICAL_CENTER);
-                }
-            },
-        ];
+        // 3. POTONG MAKSIMAL 31 KARAKTER (Aturan Mutlak Microsoft Excel)
+        return substr($title, 0, 31);
     }
 }
