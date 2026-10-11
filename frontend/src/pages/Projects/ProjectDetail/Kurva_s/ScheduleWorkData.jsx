@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Target, Info, Activity, CheckCircle2, Clock, X, CalendarDays, Inbox, Plus, Trash2, Edit3, Check, Loader2, Eye, EyeOff } from 'lucide-react';
 import api from '../../../../api';
 
@@ -11,16 +11,6 @@ export default function ScheduleWorkData({
   const [inlineEditId, setInlineEditId] = useState(null);
   const [inlineEditData, setInlineEditData] = useState({ volume: '', persentase: '' });
   const [isSavingInline, setIsSavingInline] = useState(false);
-  
-  // STATE OPTIMASI: Menunda render tabel raksasa agar tab merespons instan
-  const [isRenderingUI, setIsRenderingUI] = useState(true);
-
-  useEffect(() => {
-    setIsRenderingUI(true);
-    // Memberi "nafas" 50ms bagi browser untuk memindahkan UI tab sebelum memproses dan melukis tabel matriks
-    const timer = setTimeout(() => setIsRenderingUI(false), 50);
-    return () => clearTimeout(timer);
-  }, [scheduleData, localWeeks]);
 
   const getSafeFloat = (val) => {
     if (val === null || val === undefined) return 0;
@@ -28,70 +18,33 @@ export default function ScheduleWorkData({
     return isNaN(parsed) ? 0 : parsed;
   };
 
+  const safeLocalWeeks = Array.isArray(localWeeks) ? localWeeks : (localWeeks ? Object.values(localWeeks) : []);
+  const weeksArray = safeLocalWeeks.map(w => parseInt(w.minggu_ke) || 0);
+
+  const rawRabData = scheduleData?.rab_data;
+  let safeRabData = Array.isArray(rawRabData) ? rawRabData : (rawRabData ? Object.values(rawRabData) : []);
+  const cumulativeActualMap = scheduleData?.cumulative_actual || {};
+
+  safeRabData = safeRabData.map(cat => {
+    const items = Array.isArray(cat?.items) ? cat.items : (cat?.items ? Object.values(cat.items) : []);
+    const filteredItems = items.filter(item => cumulativeActualMap[item.id] !== undefined);
+    return { ...cat, items: filteredItems };
+  }).filter(cat => cat.items.length > 0);
+
   // =========================================================================
-  // USE-MEMO OPTIMIZATION: Mencegah kalkulasi ulang setiap kali state kecil berubah
+  // LOGIKA PENGHILANGAN / PENAMPILAN ADDENDUM
   // =========================================================================
-  const { displayRabData, weeklyMetrics, weeksArray, safeLocalWeeks, hasAddendum } = useMemo(() => {
-    const sLocalWeeks = Array.isArray(localWeeks) ? localWeeks : (localWeeks ? Object.values(localWeeks) : []);
-    const wArray = sLocalWeeks.map(w => parseInt(w.minggu_ke) || 0);
+  const ADDENDUM_NAME = 'PEKERJAAN TAMBAHAN (ADDENDUM)';
+  const hasAddendum = safeRabData.some(cat => cat.nama_kategori === ADDENDUM_NAME);
 
-    const rawRabData = scheduleData?.rab_data;
-    let safeRabData = Array.isArray(rawRabData) ? rawRabData : (rawRabData ? Object.values(rawRabData) : []);
-    const cumulativeActualMap = scheduleData?.cumulative_actual || {};
-
-    safeRabData = safeRabData.map(cat => {
-      const items = Array.isArray(cat?.items) ? cat.items : (cat?.items ? Object.values(cat.items) : []);
-      const filteredItems = items.filter(item => cumulativeActualMap[item.id] !== undefined);
-      return { ...cat, items: filteredItems };
-    }).filter(cat => cat.items.length > 0);
-
-    const ADDENDUM_NAME = 'PEKERJAAN TAMBAHAN (ADDENDUM)';
-    const addendumExist = safeRabData.some(cat => cat.nama_kategori === ADDENDUM_NAME);
-
-    let dispData = safeRabData;
-    if (!showAddendum) {
-        dispData = dispData.filter(cat => cat.nama_kategori !== ADDENDUM_NAME);
-    } else {
-        const normalData = dispData.filter(cat => cat.nama_kategori !== ADDENDUM_NAME);
-        const addenData = dispData.filter(cat => cat.nama_kategori === ADDENDUM_NAME);
-        dispData = [...normalData, ...addenData];
-    }
-
-    let runningActual = 0;
-    const metrics = {};
-    let maxReportedWeek = 0;
-    
-    if (scheduleData?.weekly_actual) {
-        Object.keys(scheduleData.weekly_actual).forEach(k => {
-            if (parseInt(k) > maxReportedWeek) maxReportedWeek = parseInt(k);
-        });
-    }
-
-    wArray.forEach((w, index) => {
-        const weekActual = getSafeFloat(scheduleData?.weekly_actual?.[w]);
-        runningActual += weekActual;
-        
-        const currentCumPlan = getSafeFloat(sLocalWeeks.find(week => parseInt(week.minggu_ke) === w)?.target_kumulatif);
-        const prevCumPlan = index === 0 ? 0 : getSafeFloat(sLocalWeeks.find(week => parseInt(week.minggu_ke) === wArray[index-1])?.target_kumulatif);
-        
-        const rencanaMingguan = currentCumPlan - prevCumPlan;
-        
-        let deviation = null;
-        if (maxReportedWeek > 0 && w <= maxReportedWeek) {
-            deviation = runningActual - currentCumPlan;
-        }
-
-        metrics[w] = {
-            actualWeekly: weekActual,
-            actualCum: runningActual,
-            planWeekly: rencanaMingguan,
-            planCum: currentCumPlan,
-            deviation: deviation
-        };
-    });
-
-    return { displayRabData: dispData, weeklyMetrics: metrics, weeksArray: wArray, safeLocalWeeks: sLocalWeeks, hasAddendum: addendumExist };
-  }, [scheduleData, localWeeks, showAddendum]);
+  let displayRabData = safeRabData;
+  if (!showAddendum) {
+      displayRabData = displayRabData.filter(cat => cat.nama_kategori !== ADDENDUM_NAME);
+  } else {
+      const normalData = displayRabData.filter(cat => cat.nama_kategori !== ADDENDUM_NAME);
+      const addenData = displayRabData.filter(cat => cat.nama_kategori === ADDENDUM_NAME);
+      displayRabData = [...normalData, ...addenData];
+  }
   // =========================================================================
 
   const handleOpenCellDetail = (item, weekNum) => {
@@ -122,15 +75,44 @@ export default function ScheduleWorkData({
 
   const extraCols = isEditMode && canCreateData ? 4 : 3;
 
-  // Jika masih masa jeda, tampilkan loading agar tab bisa langsung berpindah tanpa lag
-  if (isRenderingUI) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[300px] w-full bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl shadow-sm animate-fade-in">
-        <Loader2 className="w-8 h-8 text-amber-500 animate-spin mb-3" />
-        <p className="text-xs font-medium text-slate-500">Mempersiapkan Matriks Data...</p>
-      </div>
-    );
+  // =========================================================================
+  // MESIN KALKULASI FOOTER BARU (RENCANA, KUMULATIF, REALISASI, DEVIASI)
+  // =========================================================================
+  let runningActual = 0;
+  const weeklyMetrics = {};
+  let maxReportedWeek = 0;
+  
+  if (scheduleData?.weekly_actual) {
+      Object.keys(scheduleData.weekly_actual).forEach(k => {
+          if (parseInt(k) > maxReportedWeek) maxReportedWeek = parseInt(k);
+      });
   }
+
+  weeksArray.forEach((w, index) => {
+      const weekActual = getSafeFloat(scheduleData?.weekly_actual?.[w]);
+      runningActual += weekActual;
+      
+      const currentCumPlan = getSafeFloat(safeLocalWeeks.find(week => parseInt(week.minggu_ke) === w)?.target_kumulatif);
+      const prevCumPlan = index === 0 ? 0 : getSafeFloat(safeLocalWeeks.find(week => parseInt(week.minggu_ke) === weeksArray[index-1])?.target_kumulatif);
+      
+      // Hitung Rencana Mingguan Otomatis
+      const rencanaMingguan = currentCumPlan - prevCumPlan;
+      
+      let deviation = null;
+      // Deviasi hanya dihitung sampai minggu laporan terakhir
+      if (maxReportedWeek > 0 && w <= maxReportedWeek) {
+          deviation = runningActual - currentCumPlan;
+      }
+
+      weeklyMetrics[w] = {
+          actualWeekly: weekActual,
+          actualCum: runningActual,
+          planWeekly: rencanaMingguan,
+          planCum: currentCumPlan,
+          deviation: deviation
+      };
+  });
+  // =========================================================================
 
   return (
     <>
@@ -354,7 +336,6 @@ export default function ScheduleWorkData({
         </div>
       </div>
 
-      {/* MODAL RINCIAN ... */}
       {detailModal.show && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-slate-800 w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700 flex flex-col max-h-[90vh]">
