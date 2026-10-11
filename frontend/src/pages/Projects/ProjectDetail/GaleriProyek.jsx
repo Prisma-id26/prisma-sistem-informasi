@@ -6,6 +6,9 @@ import {
   Loader2, AlertTriangle, Calendar, User, Search, X, ZoomIn, Download, Camera, LayoutGrid
 } from 'lucide-react';
 
+// CACHE MEMORI: Simpan data galeri per ID Proyek
+let cachedGalleryDetails = {};
+
 export default function GaleriProyek() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -15,16 +18,25 @@ export default function GaleriProyek() {
     document.title = "Prisma Group - Galeri Proyek";
   }, []);
 
-  const [project, setProject] = useState(location.state || { id: id, nama_proyek: 'Memuat Data...' });
+  // Ambil Data dari Cache jika tersedia
+  const getInitialCache = () => {
+    if (cachedGalleryDetails[id]) return cachedGalleryDetails[id];
+    return null;
+  };
+  const initialCache = getInitialCache();
+
+  const [project, setProject] = useState(initialCache?.project || location.state || { id: id, nama_proyek: 'Memuat Data...' });
   const projectId = project?.id || id;
 
-  const [photos, setPhotos] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [photos, setPhotos] = useState(initialCache?.photos || []);
+  const [availableWeeks, setAvailableWeeks] = useState(initialCache?.availableWeeks || []);
+  
+  const hasCachedFullData = Boolean(initialCache);
+  const [isLoading, setIsLoading] = useState(!hasCachedFullData);
   const [errorMsg, setErrorMsg] = useState('');
   
   // State untuk Filter & Pencarian
   const [selectedWeek, setSelectedWeek] = useState('Semua');
-  const [availableWeeks, setAvailableWeeks] = useState([]);
 
   // State untuk Modal Preview (Lightbox)
   const [previewPhoto, setPreviewPhoto] = useState(null);
@@ -52,13 +64,15 @@ export default function GaleriProyek() {
     return new Date(dateString).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
   };
 
-  const fetchData = async () => {
-    setIsLoading(true);
+  const fetchData = async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
-      // 1. Fetch data proyek (Jika belum ada dari state)
+      let currentProject = project;
+      // 1. Fetch data proyek (Jika belum ada)
       if (!project.tanggal_mulai) {
         const projRes = await api.get(`/projects/${projectId}`);
-        setProject(projRes.data?.data || projRes.data);
+        currentProject = projRes.data?.data || projRes.data;
+        setProject(currentProject);
       }
 
       // 2. Fetch Galeri
@@ -70,22 +84,40 @@ export default function GaleriProyek() {
       const weeks = [...new Set(dataFoto.map(p => p.minggu_ke))].sort((a, b) => a - b);
       setAvailableWeeks(weeks);
 
+      // 3. Simpan ke Cache Memory
+      cachedGalleryDetails[projectId] = { 
+        project: currentProject, 
+        photos: dataFoto, 
+        availableWeeks: weeks 
+      };
+
     } catch (error) {
       console.error(error);
-      setErrorMsg('Gagal memuat galeri proyek.');
+      if (!silent) setErrorMsg('Gagal memuat galeri proyek.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Jalankan fetchData: Silent update jika data sudah ada di cache
   useEffect(() => {
-    fetchData();
+    fetchData(hasCachedFullData);
   }, [projectId]);
 
   // Data foto yang sudah di-filter
   const filteredPhotos = selectedWeek === 'Semua' 
     ? photos 
     : photos.filter(p => parseInt(p.minggu_ke) === parseInt(selectedWeek));
+
+  // Role Access (Untuk navigasi Tab)
+  const [userRole, setUserRole] = useState('Tamu');
+  useEffect(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user_data'));
+      if (user) setUserRole(user.role || 'Tamu');
+    } catch {}
+  }, []);
+  const isGuest = userRole === 'Tamu';
 
   return (
     <div className="w-full space-y-3.5 pb-2 relative animate-fade-in flex flex-col">
@@ -153,21 +185,25 @@ export default function GaleriProyek() {
               <span className="hidden sm:inline">Data</span>
             </button>
 
-            <button 
-              onClick={() => navigate(`/projects/${projectId}/rab`, { state: project })} 
-              className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
-              <span className="hidden sm:inline">RAB</span>
-            </button>
+            {!isGuest && (
+              <>
+                <button 
+                  onClick={() => navigate(`/projects/${projectId}/rab`, { state: project })} 
+                  className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
+                  <span className="hidden sm:inline">RAB</span>
+                </button>
 
-            <button 
-              onClick={() => navigate(`/projects/${projectId}/kurva-s`, { state: project })} 
-              className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0"
-            >
-              <TrendingUp className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
-              <span className="hidden sm:inline">Kurva Schedule</span>
-            </button>
+                <button 
+                  onClick={() => navigate(`/projects/${projectId}/kurva-s`, { state: project })} 
+                  className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0"
+                >
+                  <TrendingUp className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
+                  <span className="hidden sm:inline">Kurva Schedule</span>
+                </button>
+              </>
+            )}
 
             <button 
               onClick={() => navigate(`/projects/${projectId}/peta-gis`, { state: project })} 
@@ -192,7 +228,7 @@ export default function GaleriProyek() {
       {/* ============================================================== */}
       {/* KONTEN UTAMA: GALERI GRID                                      */}
       {/* ============================================================== */}
-      {isLoading ? (
+      {isLoading && !hasCachedFullData ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh] w-full bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl shadow-sm animate-fade-in">
           <Loader2 className="w-10 h-10 text-amber-500 animate-spin mb-4" />
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
@@ -211,7 +247,7 @@ export default function GaleriProyek() {
             <Camera className="w-8 h-8 text-slate-300 dark:text-slate-600" />
           </div>
           <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Belum Ada Foto Dokumentasi</h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed">
             Foto yang diunggah melalui Laporan Harian pengawas akan otomatis muncul di galeri ini.
           </p>
         </div>

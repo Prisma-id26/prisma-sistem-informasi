@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, Info, FileSpreadsheet, TrendingUp, Compass, 
+  ArrowLeft, Info, FileSpreadsheet, TrendingUp, Compass, Image as ImageIcon,
   Plus, Edit3, Download, CheckCircle2, UploadCloud 
 } from 'lucide-react';
 
@@ -133,33 +133,45 @@ export default function NavigasiRAB({
         {/* CARD BOX KANAN: NAVIGASI TAB MENU */}
         <div className="flex items-center justify-between sm:justify-start gap-1 bg-white dark:bg-slate-800/80 px-1.5 h-10 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-x-auto custom-scrollbar z-0 shrink-0">
           <button 
-            onClick={() => navigate(`/projects/${id}/data`)} 
-            className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap"
+            onClick={() => navigate(`/projects/${id}/data`, { state: projectData })} 
+            className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0"
           >
             <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
-            <span>Data</span>
+            <span className="hidden sm:inline">Data</span>
           </button>
+          
           <button 
-            className="flex items-center justify-center gap-1.5 h-7 px-2.5 bg-amber-500 text-white dark:text-slate-950 text-[10px] sm:text-[11px] font-bold rounded-lg shadow-sm whitespace-nowrap cursor-default"
+            className="flex items-center justify-center gap-1.5 h-7 px-2.5 bg-amber-500 text-white dark:text-slate-950 text-[10px] sm:text-[11px] font-bold rounded-lg shadow-sm whitespace-nowrap shrink-0 cursor-default"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" /> 
-            <span>RAB</span>
+            <span className="hidden sm:inline">RAB</span>
           </button>
+          
           <button 
             onClick={() => navigate(`/projects/${id}/kurva-s`, { state: projectData })} 
-            className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap"
+            className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0"
           >
             <TrendingUp className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
-            <span>Kurva Schedule</span>
+            <span className="hidden sm:inline">Kurva Schedule</span>
           </button>
+          
           <button 
             onClick={() => navigate(`/projects/${id}/peta-gis`, { state: projectData })} 
-            className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap"
+            className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0"
           >
             <Compass className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
-            <span>Peta GIS</span>
+            <span className="hidden sm:inline">Peta GIS</span>
+          </button>
+
+          <button 
+            onClick={() => navigate(`/projects/${id}/gallery`, { state: projectData })} 
+            className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0"
+          >
+            <ImageIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
+            <span className="hidden sm:inline">Gallery</span>
           </button>
         </div>
+
       </div>
     </div>
   );
