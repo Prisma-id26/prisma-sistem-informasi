@@ -7,7 +7,7 @@
         /* Pengaturan Kertas dan Font Dasar */
         body {
             font-family: Arial, sans-serif;
-            font-size: 9px; /* Dikecilkan sedikit agar muat banyak kolom minggu */
+            font-size: 8px; /* Diperkecil agar muat banyak kolom minggu */
             margin: 0;
             padding: 0;
         }
@@ -30,7 +30,7 @@
             width: 100%;
             border-collapse: collapse;
             margin-top: 10px;
-            table-layout: fixed; /* KUNCI PERBAIKAN: Memaksa tabel membagi ruang dengan benar */
+            table-layout: fixed; /* KUNCI PERBAIKAN: Memaksa tabel membagi ruang dengan seimbang */
         }
 
         th, td {
@@ -51,14 +51,16 @@
         /* Pengaturan Lebar Kolom Proporsional */
         .col-kode { width: 6%; }
         .col-uraian { width: 25%; }
-        .col-bobot { width: 5%; }
+        .col-bobot { width: 4%; }
         .col-total { width: 6%; }
-        /* Kolom M-1, M-2, dst akan dibagi rata oleh sisa persentase secara otomatis */
+        /* Sisa ruang akan dibagi rata otomatis untuk kolom M-1, M-2, dst */
     </style>
 </head>
 <body>
 
-    <!-- HALAMAN 1: GRAFIK -->
+    <!-- ========================================== -->
+    <!-- HALAMAN 1: GRAFIK KURVA S PENUH -->
+    <!-- ========================================== -->
     @if(!empty($chartImageBase64))
     <div class="chart-container">
         <h2>GRAFIK KURVA S & JADWAL PROYEK</h2>
@@ -70,7 +72,9 @@
     <div class="page-break"></div>
     @endif
 
-    <!-- HALAMAN 2 DST: TABEL -->
+    <!-- ========================================== -->
+    <!-- HALAMAN 2 DST: TABEL MATRIKS -->
+    <!-- ========================================== -->
     <div class="table-container">
         @if(empty($chartImageBase64))
             <h2 style="text-align:center; margin-bottom: 15px;">MATRIKS SCHEDULE PROYEK - {{ strtoupper($project->nama_proyek) }}</h2>
@@ -92,19 +96,23 @@
             </thead>
             <tbody>
                 @foreach($rabData as $divisi)
+                    <!-- BARIS KATEGORI / DIVISI -->
                     <tr style="background-color: #f8fafc;">
                         <td class="text-left"><b>{{ $divisi['kode_divisi'] }}</b></td>
-                        <td class="text-left" colspan="{{ count($localWeeks) + 2 }}"><b>{{ $divisi['nama_kategori'] }}</b></td>
+                        <td class="text-left" colspan="{{ count($localWeeks) + 3 }}"><b>{{ $divisi['nama_kategori'] }}</b></td>
                     </tr>
+
                     @foreach($divisi['items'] as $item)
                         @if($item->is_subheader)
+                            <!-- BARIS SUBHEADER -->
                             <tr style="background-color: #fdf6e3;">
                                 <td class="text-left" style="font-weight: bold; color: #d97706;">{{ $item->kode_pekerjaan }}</td>
-                                <td class="text-left" colspan="{{ count($localWeeks) + 2 }}"><b>{{ $item->uraian_pekerjaan }}</b></td>
+                                <td class="text-left" colspan="{{ count($localWeeks) + 3 }}"><b>{{ $item->uraian_pekerjaan }}</b></td>
                             </tr>
                         @else
+                            <!-- BARIS ITEM PEKERJAAN -->
                             <tr>
-                                <td class="text-left" style="font-size: 8px;">{{ $item->kode_pekerjaan }}</td>
+                                <td class="text-left" style="font-size: 7px;">{{ $item->kode_pekerjaan }}</td>
                                 <td class="text-left">{{ $item->uraian_pekerjaan }}</td>
                                 <td style="font-weight: bold;">{{ number_format($item->bobot, 2) }}%</td>
 
@@ -112,7 +120,7 @@
                                     @php
                                         $act = $matrix_actual[$item->id][$w->minggu_ke] ?? 0;
                                     @endphp
-                                    <td style="font-size: 9px;">{{ $act > 0 ? number_format($act, 2) : '-' }}</td>
+                                    <td>{{ $act > 0 ? number_format($act, 2) : '-' }}</td>
                                 @endforeach
 
                                 @php
@@ -124,7 +132,9 @@
                     @endforeach
                 @endforeach
             </tbody>
+
             <tfoot>
+                <!-- BARIS 1: AKTUAL MINGGUAN -->
                 <tr style="background-color: #ecfdf5;">
                     <th colspan="3" style="text-align: right; color: #059669;">Total Aktual / Realisasi</th>
                     @php
@@ -141,6 +151,7 @@
                     <th style="color: #059669;">{{ number_format(array_sum($weekly_actual), 2) }}%</th>
                 </tr>
 
+                <!-- BARIS 2: TARGET RENCANA -->
                 <tr style="background-color: #eff6ff;">
                     <th colspan="3" style="text-align: right; color: #2563eb;">Target Kumulatif Mingguan</th>
                     @foreach($localWeeks as $w)
@@ -149,6 +160,7 @@
                     <th style="color: #2563eb;">-</th>
                 </tr>
 
+                <!-- BARIS 3: DEVIASI -->
                 <tr style="background-color: #fffbeb;">
                     <th colspan="3" style="text-align: right; color: #b45309;">Deviasi (Aktual - Target)</th>
                     @php $runningActual = 0; @endphp
@@ -173,5 +185,6 @@
             </tfoot>
         </table>
     </div>
+
 </body>
 </html>
