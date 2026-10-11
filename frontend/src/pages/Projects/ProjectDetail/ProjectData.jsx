@@ -179,7 +179,6 @@ export default function ProjectData() {
           await api.put(`/projects/${id}`, payloadData);
         }
 
-        // Hapus cache lokal agar sinkronisasi data baru langsung terbaca
         delete cachedProjectDetails[id];
         try { 
           sessionStorage.removeItem(`cached_project_detail_${id}`);
@@ -331,7 +330,6 @@ export default function ProjectData() {
         
         {/* INFORMASI, FOTO SAMPUL & JUDUL PROYEK */}
         <div className="flex items-start lg:items-center gap-3 shrink-0">
-          {/* FOTO SAMPUL / BANNER PROYEK DI SEBELAH KIRI DATA UTAMA */}
           <div className="relative group shrink-0 mt-0.5 lg:mt-0">
             <input 
               type="file" 
@@ -363,7 +361,6 @@ export default function ProjectData() {
                 </span>
               )}
 
-              {/* OVERLAY MODE EDIT */}
               {isEditMode && (
                 <div className="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
                   <Camera className="w-4 h-4 text-white" />
@@ -372,7 +369,6 @@ export default function ProjectData() {
               )}
             </div>
 
-            {/* TOMBOL HAPUS FOTO SAAT MODE EDIT */}
             {isEditMode && (newFotoPreview || (project?.foto_sampul && !removeFoto)) && (
               <button
                 type="button"
@@ -417,7 +413,6 @@ export default function ProjectData() {
         {/* CONTAINER KONTROL: BERTUMPUK DI MOBILE & TABLET, SEJAJAR DI DESKTOP */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
           
-          {/* BOKS KIRI: KONTROL AKSI (EDIT: BIRU, BATAL, SIMPAN, EXCEL: HIJAU, PDF: MERAH) */}
           <div className="flex items-center justify-between sm:justify-start gap-1 bg-white dark:bg-slate-800/80 px-1.5 h-10 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-x-auto custom-scrollbar z-30 transition-all shrink-0">
             {canEditData && (
               isEditMode ? (
@@ -484,14 +479,15 @@ export default function ProjectData() {
             )}
           </div>
 
-          {/* BOKS KANAN: NAVIGASI TAB MENU (DENGAN TAB GALLERY BARU) */}
+          {/* BOKS KANAN: NAVIGASI TAB MENU */}
           <div className="flex items-center justify-between sm:justify-start gap-1 bg-white dark:bg-slate-800/80 px-1.5 h-10 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-x-auto custom-scrollbar z-0 shrink-0">
             <button 
               type="button"
               className="flex items-center justify-center gap-1.5 h-7 px-2.5 bg-amber-500 text-white dark:text-slate-950 text-[10px] sm:text-[11px] font-bold rounded-lg shadow-sm whitespace-nowrap shrink-0 cursor-default"
             >
               <Info className="w-3.5 h-3.5 shrink-0" /> 
-              <span>Data</span>
+              {/* PENYEMBUNYIAN TEKS PADA HP (hidden sm:inline) */}
+              <span className="hidden sm:inline">Data</span>
             </button>
 
             {!isGuest && (
@@ -502,7 +498,7 @@ export default function ProjectData() {
                   className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
-                  <span>RAB</span>
+                  <span className="hidden sm:inline">RAB</span>
                 </button>
 
                 <button 
@@ -511,7 +507,7 @@ export default function ProjectData() {
                   className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0"
                 >
                   <TrendingUp className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
-                  <span>Kurva Schedule</span>
+                  <span className="hidden sm:inline">Kurva Schedule</span>
                 </button>
               </>
             )}
@@ -522,17 +518,16 @@ export default function ProjectData() {
               className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0"
             >
               <Compass className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
-              <span>Peta GIS</span>
+              <span className="hidden sm:inline">Peta GIS</span>
             </button>
 
-            {/* TAB GALLERY BARU */}
             <button 
               type="button"
               onClick={() => navigate(`/projects/${id}/gallery`, { state: project })} 
               className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0"
             >
               <Image className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
-              <span>Gallery</span>
+              <span className="hidden sm:inline">Gallery</span>
             </button>
           </div>
 
