@@ -11,7 +11,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 import ScheduleWorkData from './Kurva_s/ScheduleWorkData';
 
-// CACHE MEMORI: Simpan data kurva s agar instan saat diklik kembali (0 delay)
+// CACHE MEMORI
 let cachedScheduleDetails = {};
 
 export default function KurvaS({ selectedProject }) {
@@ -34,7 +34,6 @@ export default function KurvaS({ selectedProject }) {
   const canCreateData = ['Administrator', 'Team Leader', 'Pengawas Lapangan'].includes(userRole);
   const isGuest = userRole === 'Tamu';
 
-  // Ambil data dari cache memory jika sudah ada
   const getInitialSchedule = () => {
     if (cachedScheduleDetails[projectId]) return cachedScheduleDetails[projectId];
     return null;
@@ -368,18 +367,24 @@ export default function KurvaS({ selectedProject }) {
       if (hasReportToday) cumRealisasi += actVal;
       
       let finalRealisasiKumulatif = null;
+      let finalDeviasi = null;
+
       if (hasAnyReportEver) {
           if (maxReportedDayStr && yyyymmdd > maxReportedDayStr) {
               finalRealisasiKumulatif = null; 
           } else {
               finalRealisasiKumulatif = getSafeFloat(cumRealisasi);
+              // Hitung Deviasi jika Target dan Aktual sama-sama ada
+              if (targetKumulatifMingguan !== null) {
+                  finalDeviasi = getSafeFloat(cumRealisasi - targetKumulatifMingguan);
+              }
           }
       }
 
       tempChartData.push({
         hariKe: i + 1, label: `H-${(i + 1).toString().padStart(2, '0')}`, dateString: yyyymmdd, dateSlash, displayDate, shortDate, mingguKe: currentWeekNum,
         targetKumulatifMingguan, rencanaKumulatif: targetKumulatifMingguan, bobotRealisasi: actVal,
-        realisasiKumulatif: finalRealisasiKumulatif, hasReportToday
+        realisasiKumulatif: finalRealisasiKumulatif, deviasiKumulatif: finalDeviasi, hasReportToday
       });
     }
     setFullChartData(tempChartData);
@@ -418,6 +423,7 @@ export default function KurvaS({ selectedProject }) {
     setChartData(aggregated);
   }, [fullChartData, startDateFilter, endDateFilter, filterMode]);
 
+  // CUSTOM TOOLTIP UNTUK MENG-HANDLE FORMAT DEVIASI (BIAR RAPI JIKA MINUS)
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const dataInfo = payload[0].payload;
@@ -426,26 +432,23 @@ export default function KurvaS({ selectedProject }) {
           <p className="font-extrabold text-slate-800 dark:text-white mb-2 pb-2 border-b border-slate-200 dark:border-slate-700">{dataInfo.tooltipLabel}</p>
           {payload.map((entry, index) => {
             if (entry.value === undefined || entry.value === null) return null; 
+            
+            // Format khusus jika baris ini adalah Deviasi
+            let valText = `${getSafeFloat(entry.value).toFixed(2)}%`;
+            if (entry.dataKey === 'deviasiKumulatif') {
+                valText = entry.value > 0 ? `+${valText}` : valText;
+            }
+
             return (
               <div key={index} className="flex justify-between items-center gap-6 font-medium mb-1.5 last:mb-0">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></div>
                   <span className="text-slate-600 dark:text-slate-300">{entry.name}</span>
                 </div>
-                <span className="font-mono font-bold" style={{ color: entry.color }}>{getSafeFloat(entry.value).toFixed(2)}%</span>
+                <span className="font-mono font-bold" style={{ color: entry.color }}>{valText}</span>
               </div>
             );
           })}
-          
-          {/* BARIS DEVIASI (Khusus muncul jika Plan dan Aktual sama-sama ada nilainya) */}
-          {dataInfo.realisasiKumulatif !== null && dataInfo.targetKumulatifMingguan !== null && (
-             <div className="flex justify-between items-center gap-6 font-medium mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
-               <span className="text-slate-600 dark:text-slate-300">Deviasi</span>
-               <span className={`font-mono font-bold ${(dataInfo.realisasiKumulatif - dataInfo.targetKumulatifMingguan) < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                 {(dataInfo.realisasiKumulatif - dataInfo.targetKumulatifMingguan) > 0 ? '+' : ''}{(dataInfo.realisasiKumulatif - dataInfo.targetKumulatifMingguan).toFixed(2)}%
-               </span>
-             </div>
-          )}
         </div>
       );
     }
@@ -713,6 +716,8 @@ export default function KurvaS({ selectedProject }) {
               <div className="flex items-center gap-3 text-[10px] bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 rounded-lg shadow-inner">
                 <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-semibold"><span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></span> Target Plan</span>
                 <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold"><span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span> Aktual Kumulatif</span>
+                {/* --- INDIKATOR WARNA UNTUK KURVA DEVIASI --- */}
+                <span className="flex items-center gap-1 text-amber-500 font-semibold"><span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]"></span> Deviasi</span>
               </div>
             </div>
             
@@ -725,10 +730,15 @@ export default function KurvaS({ selectedProject }) {
                     <LineChart data={chartData} margin={{ top: 15, right: 15, left: -25, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" vertical={false} className="dark:stroke-slate-700" />
                       <XAxis dataKey="xAxisLabel" stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} className="dark:stroke-slate-400" />
-                      <YAxis stroke="#64748b" fontSize={11} domain={[0, 100]} unit="%" tickLine={false} axisLine={false} className="dark:stroke-slate-400" />
+                      {/* PERBAIKAN SUMBU Y: domain=['auto', 100] AGAR BISA TURUN MINUS JIKA DEVIASI MINUS */}
+                      <YAxis stroke="#64748b" fontSize={11} domain={['auto', 100]} unit="%" tickLine={false} axisLine={false} className="dark:stroke-slate-400" />
                       <Tooltip content={<CustomTooltip />} />
+                      
                       <Line type="monotone" dataKey="rencanaKumulatif" name="Target Rencana" stroke="#3b82f6" strokeWidth={3} dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={true} />
                       <Line type="monotone" dataKey="realisasiKumulatif" name="Aktual Kumulatif" stroke="#10b981" strokeWidth={3} dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={false} />
+                      {/* --- KURVA DEVIASI (ORANYE) --- */}
+                      <Line type="monotone" dataKey="deviasiKumulatif" name="Deviasi" stroke="#f59e0b" strokeWidth={3} strokeDasharray="5 5" dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={false} />
+
                     </LineChart>
                   </ResponsiveContainer>
                 )}
