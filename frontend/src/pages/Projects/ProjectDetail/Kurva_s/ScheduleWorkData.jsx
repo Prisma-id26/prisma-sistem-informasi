@@ -76,7 +76,7 @@ export default function ScheduleWorkData({
   const extraCols = isEditMode && canCreateData ? 4 : 3;
 
   // =========================================================================
-  // MESIN KALKULASI FOOTER: Mingguan Aktual & Deviasi (Tanpa Kumulatif View)
+  // MESIN KALKULASI FOOTER BARU (RENCANA, KUMULATIF, REALISASI, DEVIASI)
   // =========================================================================
   let runningActual = 0;
   const weeklyMetrics = {};
@@ -88,21 +88,27 @@ export default function ScheduleWorkData({
       });
   }
 
-  weeksArray.forEach(w => {
+  weeksArray.forEach((w, index) => {
       const weekActual = getSafeFloat(scheduleData?.weekly_actual?.[w]);
       runningActual += weekActual;
       
-      const existingTarget = getSafeFloat(safeLocalWeeks.find(week => parseInt(week.minggu_ke) === w)?.target_kumulatif);
+      const currentCumPlan = getSafeFloat(safeLocalWeeks.find(week => parseInt(week.minggu_ke) === w)?.target_kumulatif);
+      const prevCumPlan = index === 0 ? 0 : getSafeFloat(safeLocalWeeks.find(week => parseInt(week.minggu_ke) === weeksArray[index-1])?.target_kumulatif);
+      
+      // Hitung Rencana Mingguan Otomatis
+      const rencanaMingguan = currentCumPlan - prevCumPlan;
+      
       let deviation = null;
-
-      // Hanya kalkulasi Deviasi sampai di minggu terakhir laporan harian dibuat
+      // Deviasi hanya dihitung sampai minggu laporan terakhir
       if (maxReportedWeek > 0 && w <= maxReportedWeek) {
-          deviation = runningActual - existingTarget;
+          deviation = runningActual - currentCumPlan;
       }
 
       weeklyMetrics[w] = {
-          actual: weekActual,
-          target: existingTarget,
+          actualWeekly: weekActual,
+          actualCum: runningActual,
+          planWeekly: rencanaMingguan,
+          planCum: currentCumPlan,
           deviation: deviation
       };
   });
@@ -112,7 +118,6 @@ export default function ScheduleWorkData({
     <>
       <style>{`.custom-scrollbar::-webkit-scrollbar { height: 5px; width: 5px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; } .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #475569; } .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #f59e0b; cursor: pointer;}`}</style>
       
-      {/* TOMBOL TOGGLE ADDENDUM UNTUK ADMIN */}
       {userRole === 'Administrator' && hasAddendum && (
         <div className="flex justify-end mb-2 animate-fade-in">
           <button 
@@ -237,48 +242,64 @@ export default function ScheduleWorkData({
             
             <tfoot className="sticky bottom-0 z-30 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
               
-              {/* BARIS 1: AKTUAL MINGGUAN */}
-              <tr className="bg-emerald-50 dark:bg-emerald-500/5 border-t-2 border-emerald-200 dark:border-emerald-500/20">
+              {/* BARIS 1: RENCANA MINGGUAN (AUTO CALCULATED) */}
+              <tr className="bg-blue-50 dark:bg-blue-500/5 border-t-2 border-blue-200 dark:border-blue-500/20">
+                <td colSpan="3" className="p-2 text-right font-extrabold text-blue-600 dark:text-blue-400 uppercase text-[10px] border-r border-blue-200 dark:border-blue-500/20 sticky left-0 z-40 bg-blue-50 dark:bg-blue-900/90 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                  Rencana Mingguan
+                </td>
+                {weeksArray.map(w => (
+                  <td key={w} className="p-1.5 text-center border-r border-blue-200 dark:border-blue-500/20 font-mono text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                    {weeklyMetrics[w].planWeekly > 0 ? weeklyMetrics[w].planWeekly.toFixed(2) : '-'}
+                  </td>
+                ))}
+                {isEditMode && canCreateData && <td className="border-r border-blue-200 dark:border-blue-500/20 bg-blue-50/10 dark:bg-blue-900/10"></td>}
+                <td className="p-2.5 text-right font-mono text-[10px] font-extrabold text-blue-600 dark:text-blue-400">
+                   {weeksArray.length > 0 ? weeklyMetrics[weeksArray[weeksArray.length-1]].planCum.toFixed(2) + '%' : '-'}
+                </td>
+              </tr>
+
+              {/* BARIS 2: JUMLAH RENCANA KUMULATIF (INPUT) */}
+              <tr className="bg-sky-50 dark:bg-sky-500/5 border-t border-sky-200 dark:border-sky-500/20">
+                <td colSpan="3" className="p-2 text-right font-extrabold text-sky-700 dark:text-sky-400 uppercase text-[10px] border-r border-sky-200 dark:border-sky-500/20 sticky left-0 z-40 bg-sky-50 dark:bg-sky-900/90 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                  Jumlah Rencana Kumulatif
+                </td>
+                {weeksArray.map(w => {
+                  const existingTarget = weeklyMetrics[w].planCum;
+                  const displayCumulative = isEditMode ? existingTarget : existingTarget.toFixed(2);
+                  return (
+                    <td key={w} className="p-1.5 text-center border-r border-sky-200 dark:border-sky-500/20">
+                      {isEditMode ? (
+                        <div className="flex items-center justify-center">
+                          <input type="text" value={displayCumulative} onChange={(e) => handleWeekCumulativeChange(w, e.target.value)} className="w-12 bg-white dark:bg-slate-900 border border-sky-300 dark:border-sky-500/50 rounded-md px-1 py-0.5 text-center font-mono font-extrabold text-sky-700 dark:text-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500 shadow-sm text-[10px]"/>
+                        </div>
+                      ) : <span className="font-mono text-[10px] font-extrabold text-sky-700 dark:text-sky-400">{existingTarget > 0 ? existingTarget.toFixed(2) : '-'}</span>}
+                    </td>
+                  );
+                })}
+                {isEditMode && canCreateData && <td className="border-r border-sky-200 dark:border-sky-500/20 bg-sky-50/20 dark:bg-sky-900/10"></td>}
+                <td className="p-2 text-right font-mono text-[10px] font-extrabold text-sky-700 dark:text-sky-400">-</td>
+              </tr>
+
+              {/* BARIS 3: REALISASI (AKTUAL) */}
+              <tr className="bg-emerald-50 dark:bg-emerald-500/5 border-t border-emerald-200 dark:border-emerald-500/20">
                 <td colSpan="3" className="p-2.5 text-right font-extrabold text-emerald-600 dark:text-emerald-400 uppercase text-[10px] border-r border-emerald-200 dark:border-emerald-500/20 sticky left-0 z-40 bg-emerald-50 dark:bg-emerald-900/90 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                  Total Aktual / Realisasi
+                  Realisasi
                 </td>
                 {weeksArray.map(w => (
                   <td key={w} className="p-2 text-center border-r border-emerald-200 dark:border-emerald-500/20 font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                    {weeklyMetrics[w].actual > 0 ? weeklyMetrics[w].actual.toFixed(2) : '-'}
+                    {weeklyMetrics[w].actualWeekly > 0 ? weeklyMetrics[w].actualWeekly.toFixed(2) : '-'}
                   </td>
                 ))}
                 {isEditMode && canCreateData && <td className="border-r border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/10 dark:bg-emerald-900/10"></td>}
                 <td className="p-2.5 text-right font-mono text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">
-                  {getSafeFloat(Object.values(scheduleData?.weekly_actual || {}).reduce((sum, val) => sum + getSafeFloat(val), 0)).toFixed(2)}%
+                   {getSafeFloat(Object.values(scheduleData?.weekly_actual || {}).reduce((sum, val) => sum + getSafeFloat(val), 0)).toFixed(2)}%
                 </td>
               </tr>
 
-              {/* BARIS 2: TARGET RENCANA */}
-              <tr className="bg-blue-50 dark:bg-blue-500/5 border-t border-blue-200 dark:border-blue-500/20">
-                <td colSpan="3" className="p-2 text-right font-extrabold text-blue-600 dark:text-blue-400 uppercase text-[10px] border-r border-blue-200 dark:border-blue-500/20 sticky left-0 z-40 bg-blue-50 dark:bg-blue-900/90 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                  Target Kumulatif Mingguan
-                </td>
-                {weeksArray.map(w => {
-                  const existingTarget = weeklyMetrics[w].target;
-                  const displayCumulative = isEditMode ? existingTarget : existingTarget.toFixed(2);
-                  return (
-                    <td key={w} className="p-1.5 text-center border-r border-blue-200 dark:border-blue-500/20">
-                      {isEditMode ? (
-                        <div className="flex items-center justify-center">
-                          <input type="text" value={displayCumulative} onChange={(e) => handleWeekCumulativeChange(w, e.target.value)} className="w-12 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-500/50 rounded-md px-1 py-0.5 text-center font-mono font-extrabold text-blue-700 dark:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-[10px]"/>
-                        </div>
-                      ) : <span className="font-mono text-[10px] font-extrabold text-blue-600 dark:text-blue-400">{existingTarget > 0 ? existingTarget.toFixed(2) : '-'}</span>}
-                    </td>
-                  );
-                })}
-                {isEditMode && canCreateData && <td className="border-r border-blue-200 dark:border-blue-500/20 bg-blue-50/20 dark:bg-blue-900/10"></td>}
-                <td className="p-2 text-right font-mono text-[10px] font-extrabold text-blue-700 dark:text-blue-400">-</td>
-              </tr>
-
-              {/* BARIS 3: DEVIASI */}
+              {/* BARIS 4: DEVIASI */}
               <tr className="bg-amber-50 dark:bg-amber-500/5 border-t border-amber-200 dark:border-amber-500/20">
                 <td colSpan="3" className="p-2 text-right font-extrabold text-amber-700 dark:text-amber-400 uppercase text-[10px] border-r border-amber-200 dark:border-amber-500/20 sticky left-0 z-40 bg-amber-50 dark:bg-amber-900/90 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                  Deviasi (Aktual - Target)
+                  Deviasi
                 </td>
                 {weeksArray.map(w => {
                   const dev = weeklyMetrics[w].deviation;
@@ -311,7 +332,7 @@ export default function ScheduleWorkData({
         <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 text-[11px]"><Info className="w-3.5 h-3.5 text-amber-500 shrink-0" /> Keterangan Matriks:</span>
         <div className="flex gap-x-4 gap-y-1.5 flex-wrap text-slate-500 dark:text-slate-400 text-[11px]">
           <span className="flex items-center gap-1.5"><span className="text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/30 font-bold">0.00</span> Aktual Laporan Harian (Bisa di-klik)</span>
-          <span className="flex items-center gap-1.5"><span className="text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-800/30 font-bold">0.00</span> Target Kumulatif Rencana</span>
+          <span className="flex items-center gap-1.5"><span className="text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/20 px-1.5 py-0.5 rounded border border-sky-200 dark:border-sky-800/30 font-bold">0.00</span> Jumlah Rencana Kumulatif (Edit Plan)</span>
         </div>
       </div>
 
