@@ -89,8 +89,32 @@
             </tbody>
 
             <tfoot>
+                <!-- BARIS 1: RENCANA MINGGUAN -->
+                <tr style="background-color: #eff6ff;">
+                    <th colspan="3" style="text-align: right; color: #2563eb;">Rencana Mingguan</th>
+                    @php $prevTarget = 0; @endphp
+                    @foreach($localWeeks as $w)
+                        @php
+                            $rencanaMingguan = $w->target_kumulatif - $prevTarget;
+                            $prevTarget = $w->target_kumulatif;
+                        @endphp
+                        <th style="color: #2563eb;">{{ $rencanaMingguan > 0 ? number_format($rencanaMingguan, 2) : '-' }}</th>
+                    @endforeach
+                    <th style="color: #2563eb;">{{ number_format($localWeeks->last()->target_kumulatif ?? 0, 2) }}%</th>
+                </tr>
+
+                <!-- BARIS 2: JUMLAH RENCANA KUMULATIF -->
+                <tr style="background-color: #e0f2fe;">
+                    <th colspan="3" style="text-align: right; color: #0369a1;">Jumlah Rencana Kumulatif</th>
+                    @foreach($localWeeks as $w)
+                        <th style="color: #0369a1;">{{ $w->target_kumulatif > 0 ? number_format($w->target_kumulatif, 2) : '-' }}</th>
+                    @endforeach
+                    <th style="color: #0369a1;">-</th>
+                </tr>
+
+                <!-- BARIS 3: REALISASI -->
                 <tr style="background-color: #ecfdf5;">
-                    <th colspan="3" style="text-align: right; color: #059669;">Total Aktual / Realisasi</th>
+                    <th colspan="3" style="text-align: right; color: #059669;">Realisasi</th>
                     @php
                         $runningActual = 0;
                         $maxReportedWeek = 0;
@@ -105,16 +129,9 @@
                     <th style="color: #059669;">{{ number_format(array_sum($weekly_actual), 2) }}%</th>
                 </tr>
 
-                <tr style="background-color: #eff6ff;">
-                    <th colspan="3" style="text-align: right; color: #2563eb;">Target Kumulatif Mingguan</th>
-                    @foreach($localWeeks as $w)
-                        <th style="color: #2563eb;">{{ $w->target_kumulatif > 0 ? number_format($w->target_kumulatif, 2) : '-' }}</th>
-                    @endforeach
-                    <th style="color: #2563eb;">-</th>
-                </tr>
-
+                <!-- BARIS 4: DEVIASI -->
                 <tr style="background-color: #fffbeb;">
-                    <th colspan="3" style="text-align: right; color: #b45309;">Deviasi (Aktual - Target)</th>
+                    <th colspan="3" style="text-align: right; color: #b45309;">Deviasi</th>
                     @php $runningActual = 0; @endphp
                     @foreach($localWeeks as $w)
                         @php
