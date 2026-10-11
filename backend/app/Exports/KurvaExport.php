@@ -24,12 +24,8 @@ class KurvaExport implements FromView, WithTitle, ShouldAutoSize
 
     public function title(): string
     {
-        $projectName = $this->data['project']->nama_proyek ?? 'Proyek';
-        // 1. Bersihkan karakter yang dilarang Excel
-        $cleanName = str_replace(['*', ':', '/', '\\', '?', '[', ']'], '', $projectName);
-        // 2. Gabungkan nama
-        $title = 'Kurva ' . $cleanName;
-        // 3. Wajib dipotong maksimal 31 huruf
-        return substr($title, 0, 31);
+        // Menggunakan string absolut yang aman agar tidak melewati batas 31 Karakter Excel
+        // Nama file tetap akan menggunakan nama proyek, ini HANYA UNTUK NAMA TAB / SHEET di dalam file Excel.
+        return 'Kurva S & Schedule';
     }
 }
