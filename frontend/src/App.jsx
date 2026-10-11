@@ -20,6 +20,8 @@ import ProjectData from './pages/Projects/ProjectDetail/ProjectData';
 import ProjectRAB from './pages/Projects/ProjectDetail/ProjectRAB';
 import KurvaS from './pages/Projects/ProjectDetail/KurvaS';
 import PetaGIS from './pages/Projects/ProjectDetail/PetaGIS';
+// IMPORT HALAMAN GALERI BARU
+import GaleriProyek from './pages/Projects/ProjectDetail/GaleriProyek';
 
 // Import Modul Laporan
 import LaporanList from './pages/Laporan/LaporanList';
@@ -56,6 +58,9 @@ export default function App() {
         <Route path="/projects/:id/rab" element={<ProjectRAB />} />
         <Route path="/projects/:id/kurva-s" element={<KurvaS />} />
         <Route path="/projects/:id/peta-gis" element={<PetaGIS />} />
+        
+        {/* RUTE HALAMAN GALERI BARU */}
+        <Route path="/projects/:id/gallery" element={<GaleriProyek />} />
 
         {/* ALIAS RUTE JADWAL LAMA */}
         <Route path="/schedules/:id/data/input" element={<KurvaS />} />

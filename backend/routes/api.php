@@ -11,6 +11,7 @@ use App\Http\Controllers\DailyReportController;
 use App\Http\Controllers\ProjectScheduleController;
 use App\Http\Controllers\CompanyProfileController;
 use App\Http\Controllers\DashboardController; // Import Controller Dashboard
+use App\Http\Controllers\ProjectGalleryController;
 
 Route::get('/test-koneksi', function () {
     return response()->json(['status' => 'success']);
@@ -115,4 +116,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/cms/events', [CompanyProfileController::class, 'getEvents']);
     Route::post('/cms/events', [CompanyProfileController::class, 'storeEvent']);
     Route::delete('/cms/events/{id}', [CompanyProfileController::class, 'destroyEvent']);
+
+    Route::get('/projects/{id}/gallery', [ProjectGalleryController::class, 'index']);
 });
