@@ -253,18 +253,25 @@ export default function KurvaS({ selectedProject }) {
     }
   };
 
+  // ==============================================================
+  // FUNGSI APPLY FILTER UNTUK PERBAIKAN LAG DI "HARIAN" & "SEMUA"
+  // ==============================================================
   const applyFilter = (mode, data) => {
-    setFilterMode(mode);
     if (mode === 'Semua') {
-      setStartDateFilter(projectBounds.start); setEndDateFilter(projectBounds.end);
+      // Jika "Semua", paksa kembali ke mode Mingguan (agar tidak lag menampikan seluruh hari)
+      setFilterMode('Mingguan'); 
+      setStartDateFilter(''); 
+      setEndDateFilter('');
       setFilterSelection({ ...filterSelection, bulanLabel: '', mingguNum: '', rentangStart: '', rentangEnd: '' });
       setShowFilterPopup(false);
     } 
     else if (mode === 'Bulanan') {
+      setFilterMode(mode);
       setStartDateFilter(data.start); setEndDateFilter(data.end);
       setFilterSelection({ ...filterSelection, bulanLabel: data.label }); setShowFilterPopup(false);
     } 
     else if (mode === 'Mingguan') {
+      setFilterMode(mode);
       const weekNum = data;
       setFilterSelection({ ...filterSelection, mingguNum: weekNum });
       const targetSchedule = (scheduleData?.schedules || []).find(s => parseInt(s.minggu_ke) === parseInt(weekNum));
@@ -276,6 +283,11 @@ export default function KurvaS({ selectedProject }) {
         const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 3600 * 1000);
         setStartDateFilter(weekStart.toISOString().split('T')[0]); setEndDateFilter(weekEnd.toISOString().split('T')[0]);
       }
+      setShowFilterPopup(false);
+    }
+    else if (mode === 'Harian') {
+      setFilterMode(mode);
+      // Biarkan tanggal apa adanya. Efek filter kosong akan ditangani di useEffect bawah
       setShowFilterPopup(false);
     }
   };
@@ -392,11 +404,15 @@ export default function KurvaS({ selectedProject }) {
     setFullChartData(tempChartData);
   }, [scheduleData]);
 
+  // ==========================================================
+  // EFEK PENGGABUNGAN DATA (MENCEGAH LAG DI HARIAN)
+  // ==========================================================
   useEffect(() => {
     if (fullChartData.length === 0) return;
     let filtered = fullChartData;
     if (startDateFilter) filtered = filtered.filter(d => d.dateString >= startDateFilter);
     if (endDateFilter) filtered = filtered.filter(d => d.dateString <= endDateFilter);
+    
     let aggregated = [];
 
     if (filterMode === 'Bulanan') {
@@ -410,7 +426,16 @@ export default function KurvaS({ selectedProject }) {
       });
       aggregated = Object.values(monthMap);
     } 
-    else if (filterMode === 'Mingguan') {
+    else if (filterMode === 'Harian') {
+      // WAJIBKAN PENGISIAN TANGGAL AGAR TIDAK LAG KARENA MERENDER 300+ HARI
+      if (!startDateFilter || !endDateFilter) {
+          aggregated = []; // Kosongkan agar logic di UI memunculkan pesan peringatan
+      } else {
+          aggregated = filtered.map(d => ({ ...d, xAxisLabel: d.shortDate, tooltipLabel: d.displayDate }));
+      }
+    } 
+    else { 
+      // DEFAULT MINGGUAN (TIDAK LAG KARENA DATA DIKOMPRES PER MINGGU)
       const weekMap = {};
       filtered.forEach(d => {
         const wKey = d.mingguKe || 0;
@@ -418,10 +443,8 @@ export default function KurvaS({ selectedProject }) {
         weekMap[wKey] = { ...d, xAxisLabel: `M-${wKey}`, tooltipLabel: `Minggu Ke-${wKey}` };
       });
       aggregated = Object.values(weekMap);
-    } 
-    else { 
-      aggregated = filtered.map(d => ({ ...d, xAxisLabel: d.shortDate, tooltipLabel: d.displayDate }));
     }
+    
     setChartData(aggregated);
   }, [fullChartData, startDateFilter, endDateFilter, filterMode]);
 
@@ -433,10 +456,12 @@ export default function KurvaS({ selectedProject }) {
           <p className="font-extrabold text-slate-800 dark:text-white mb-2 pb-2 border-b border-slate-200 dark:border-slate-700">{dataInfo.tooltipLabel}</p>
           {payload.map((entry, index) => {
             if (entry.value === undefined || entry.value === null) return null; 
+            
             let valText = `${getSafeFloat(entry.value).toFixed(2)}%`;
             if (entry.dataKey === 'deviasiKumulatif') {
                 valText = entry.value > 0 ? `+${valText}` : valText;
             }
+
             return (
               <div key={index} className="flex justify-between items-center gap-6 font-medium mb-1.5 last:mb-0">
                 <div className="flex items-center gap-1.5">
@@ -498,7 +523,7 @@ export default function KurvaS({ selectedProject }) {
         start_date: startDateFilter,
         end_date: endDateFilter,
         view_mode: filterMode.toLowerCase(),
-        show_addendum: showAddendum // <-- Disuntikkan agar dibaca backend
+        show_addendum: showAddendum
       }, { responseType: 'blob' });
 
       const safeLabel = getActiveFilterLabel().replace(/[^a-zA-Z0-9]/g, '_');
@@ -724,7 +749,7 @@ export default function KurvaS({ selectedProject }) {
               <div className="flex items-center gap-3 text-[10px] bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 rounded-lg shadow-inner">
                 <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-semibold"><span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></span> Target Plan</span>
                 <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold"><span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span> Aktual Kumulatif</span>
-                {/* --- INDIKATOR WARNA UNTUK KURVA DEVIASI --- */}
+                {/* --- INDIKATOR WARNA UNTUK KURVA DEVIASI (ORANYE) --- */}
                 <span className="flex items-center gap-1 text-amber-500 font-semibold"><span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]"></span> Deviasi</span>
               </div>
             </div>
@@ -732,7 +757,11 @@ export default function KurvaS({ selectedProject }) {
             <div className="w-full h-[320px] overflow-x-auto custom-scrollbar">
               <div className={`h-full ${chartData.length > 30 ? 'min-w-[1500px]' : 'min-w-[550px]'}`}>
                 {chartData.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-xs text-slate-400 italic">Tidak ada data di rentang tanggal ini.</div>
+                  <div className="flex items-center justify-center h-full text-xs text-slate-400 italic text-center px-6">
+                    {filterMode === 'Harian' && (!startDateFilter || !endDateFilter) 
+                      ? "Untuk menghindari lag, grafik Skala Harian memerlukan Rentang Waktu. Silakan masukkan Mulai Tanggal & Sampai Tanggal di menu Filter."
+                      : "Tidak ada data di rentang tanggal ini."}
+                  </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData} margin={{ top: 15, right: 15, left: -25, bottom: 0 }}>
@@ -746,7 +775,6 @@ export default function KurvaS({ selectedProject }) {
                       <Line type="monotone" dataKey="realisasiKumulatif" name="Aktual Kumulatif" stroke="#10b981" strokeWidth={3} dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={false} />
                       {/* --- KURVA DEVIASI (ORANYE) --- */}
                       <Line type="monotone" dataKey="deviasiKumulatif" name="Deviasi" stroke="#f59e0b" strokeWidth={3} strokeDasharray="5 5" dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={false} />
-
                     </LineChart>
                   </ResponsiveContainer>
                 )}
