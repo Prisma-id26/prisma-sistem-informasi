@@ -72,8 +72,13 @@ export default function KurvaS({ selectedProject }) {
     id: Date.now(), minggu_ke: 1, bulan: 1, tanggal_mulai: '', tanggal_selesai: '', target_kumulatif: '' 
   }]);
 
-  // STATE UNTUK TOGGLE ADDENDUM
+  // STATE UNTUK TOGGLE ADDENDUM TABEL
   const [showAddendum, setShowAddendum] = useState(false);
+
+  // STATE UNTUK TOGGLE GARIS KURVA
+  const [showPlanCurve, setShowPlanCurve] = useState(true);
+  const [showActualCurve, setShowActualCurve] = useState(true);
+  const [showDeviationCurve, setShowDeviationCurve] = useState(true);
 
   const handleInitialWeekChange = (id, field, value) => {
     setWeeksForm(weeksForm.map(w => w.id === id ? { ...w, [field]: value } : w));
@@ -253,12 +258,8 @@ export default function KurvaS({ selectedProject }) {
     }
   };
 
-  // ==============================================================
-  // FUNGSI APPLY FILTER UNTUK PERBAIKAN LAG DI "HARIAN" & "SEMUA"
-  // ==============================================================
   const applyFilter = (mode, data) => {
     if (mode === 'Semua') {
-      // Jika "Semua", paksa kembali ke mode Mingguan (agar tidak lag menampikan seluruh hari)
       setFilterMode('Mingguan'); 
       setStartDateFilter(''); 
       setEndDateFilter('');
@@ -287,7 +288,6 @@ export default function KurvaS({ selectedProject }) {
     }
     else if (mode === 'Harian') {
       setFilterMode(mode);
-      // Biarkan tanggal apa adanya. Efek filter kosong akan ditangani di useEffect bawah
       setShowFilterPopup(false);
     }
   };
@@ -404,9 +404,6 @@ export default function KurvaS({ selectedProject }) {
     setFullChartData(tempChartData);
   }, [scheduleData]);
 
-  // ==========================================================
-  // EFEK PENGGABUNGAN DATA (MENCEGAH LAG DI HARIAN)
-  // ==========================================================
   useEffect(() => {
     if (fullChartData.length === 0) return;
     let filtered = fullChartData;
@@ -427,15 +424,13 @@ export default function KurvaS({ selectedProject }) {
       aggregated = Object.values(monthMap);
     } 
     else if (filterMode === 'Harian') {
-      // WAJIBKAN PENGISIAN TANGGAL AGAR TIDAK LAG KARENA MERENDER 300+ HARI
       if (!startDateFilter || !endDateFilter) {
-          aggregated = []; // Kosongkan agar logic di UI memunculkan pesan peringatan
+          aggregated = []; 
       } else {
           aggregated = filtered.map(d => ({ ...d, xAxisLabel: d.shortDate, tooltipLabel: d.displayDate }));
       }
     } 
     else { 
-      // DEFAULT MINGGUAN (TIDAK LAG KARENA DATA DIKOMPRES PER MINGGU)
       const weekMap = {};
       filtered.forEach(d => {
         const wKey = d.mingguKe || 0;
@@ -472,15 +467,6 @@ export default function KurvaS({ selectedProject }) {
               </div>
             );
           })}
-          
-          {dataInfo.realisasiKumulatif !== null && dataInfo.targetKumulatifMingguan !== null && (
-             <div className="flex justify-between items-center gap-6 font-medium mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
-               <span className="text-slate-600 dark:text-slate-300">Deviasi</span>
-               <span className={`font-mono font-bold ${(dataInfo.realisasiKumulatif - dataInfo.targetKumulatifMingguan) < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                 {(dataInfo.realisasiKumulatif - dataInfo.targetKumulatifMingguan) > 0 ? '+' : ''}{(dataInfo.realisasiKumulatif - dataInfo.targetKumulatifMingguan).toFixed(2)}%
-               </span>
-             </div>
-          )}
         </div>
       );
     }
@@ -746,11 +732,31 @@ export default function KurvaS({ selectedProject }) {
               <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-amber-500" /> Grafik Kurva S (S-Curve)
               </h3>
+              {/* TOMBOL TOGGLE INDIKATOR KURVA */}
               <div className="flex items-center gap-3 text-[10px] bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 rounded-lg shadow-inner">
-                <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 font-semibold"><span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></span> Target Plan</span>
-                <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold"><span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span> Aktual Kumulatif</span>
-                {/* --- INDIKATOR WARNA UNTUK KURVA DEVIASI (ORANYE) --- */}
-                <span className="flex items-center gap-1 text-amber-500 font-semibold"><span className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]"></span> Deviasi</span>
+                <button 
+                  onClick={() => setShowPlanCurve(!showPlanCurve)}
+                  className={`flex items-center gap-1.5 font-semibold transition-all ${showPlanCurve ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-600 grayscale opacity-60'}`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${showPlanCurve ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]' : 'bg-slate-400'}`}></span> 
+                  Target Plan
+                </button>
+                
+                <button 
+                  onClick={() => setShowActualCurve(!showActualCurve)}
+                  className={`flex items-center gap-1.5 font-semibold transition-all ${showActualCurve ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-600 grayscale opacity-60'}`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${showActualCurve ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-slate-400'}`}></span> 
+                  Aktual Kumulatif
+                </button>
+
+                <button 
+                  onClick={() => setShowDeviationCurve(!showDeviationCurve)}
+                  className={`flex items-center gap-1.5 font-semibold transition-all ${showDeviationCurve ? 'text-amber-500' : 'text-slate-400 dark:text-slate-600 grayscale opacity-60'}`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${showDeviationCurve ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]' : 'bg-slate-400'}`}></span> 
+                  Deviasi
+                </button>
               </div>
             </div>
             
@@ -767,14 +773,12 @@ export default function KurvaS({ selectedProject }) {
                     <LineChart data={chartData} margin={{ top: 15, right: 15, left: -25, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" vertical={false} className="dark:stroke-slate-700" />
                       <XAxis dataKey="xAxisLabel" stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} className="dark:stroke-slate-400" />
-                      {/* PERBAIKAN SUMBU Y: domain=['auto', 100] AGAR BISA TURUN MINUS JIKA DEVIASI MINUS */}
                       <YAxis stroke="#64748b" fontSize={11} domain={['auto', 100]} unit="%" tickLine={false} axisLine={false} className="dark:stroke-slate-400" />
                       <Tooltip content={<CustomTooltip />} />
                       
-                      <Line type="monotone" dataKey="rencanaKumulatif" name="Target Rencana" stroke="#3b82f6" strokeWidth={3} dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={true} />
-                      <Line type="monotone" dataKey="realisasiKumulatif" name="Aktual Kumulatif" stroke="#10b981" strokeWidth={3} dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={false} />
-                      {/* --- KURVA DEVIASI (ORANYE) --- */}
-                      <Line type="monotone" dataKey="deviasiKumulatif" name="Deviasi" stroke="#f59e0b" strokeWidth={3} strokeDasharray="5 5" dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={false} />
+                      {showPlanCurve && <Line type="monotone" dataKey="rencanaKumulatif" name="Target Rencana" stroke="#3b82f6" strokeWidth={3} dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={true} />}
+                      {showActualCurve && <Line type="monotone" dataKey="realisasiKumulatif" name="Aktual Kumulatif" stroke="#10b981" strokeWidth={3} dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={false} />}
+                      {showDeviationCurve && <Line type="monotone" dataKey="deviasiKumulatif" name="Deviasi" stroke="#f59e0b" strokeWidth={3} strokeDasharray="5 5" dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={false} />}
                     </LineChart>
                   </ResponsiveContainer>
                 )}
