@@ -436,6 +436,16 @@ export default function KurvaS({ selectedProject }) {
               </div>
             );
           })}
+          
+          {/* BARIS DEVIASI (Khusus muncul jika Plan dan Aktual sama-sama ada nilainya) */}
+          {dataInfo.realisasiKumulatif !== null && dataInfo.targetKumulatifMingguan !== null && (
+             <div className="flex justify-between items-center gap-6 font-medium mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+               <span className="text-slate-600 dark:text-slate-300">Deviasi</span>
+               <span className={`font-mono font-bold ${(dataInfo.realisasiKumulatif - dataInfo.targetKumulatifMingguan) < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                 {(dataInfo.realisasiKumulatif - dataInfo.targetKumulatifMingguan) > 0 ? '+' : ''}{(dataInfo.realisasiKumulatif - dataInfo.targetKumulatifMingguan).toFixed(2)}%
+               </span>
+             </div>
+          )}
         </div>
       );
     }
