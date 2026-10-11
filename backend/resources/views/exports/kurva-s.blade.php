@@ -1,86 +1,44 @@
+@if(!isset($isExcel) || !$isExcel)
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <title>Kurva S - {{ $project->nama_proyek }}</title>
     <style>
-        /* Pengaturan Kertas dan Font Dasar */
-        body {
-            font-family: Arial, sans-serif;
-            font-size: 8px; /* Diperkecil agar muat banyak kolom minggu */
-            margin: 0;
-            padding: 0;
-        }
-
+        body { font-family: Arial, sans-serif; font-size: 8px; margin: 0; padding: 0; }
         .page-break { page-break-after: always; }
-
-        /* CLASS GRAFIK FULL HALAMAN 1 */
         .chart-container { width: 100%; text-align: center; margin-bottom: 20px; }
         .chart-container h2 { margin-bottom: 5px; font-size: 16px; }
         .chart-container p { margin-top: 0; margin-bottom: 15px; font-size: 12px; color: #555; }
-        .chart-container img {
-            width: 100%;
-            height: auto;
-            max-height: 165mm;
-            object-fit: contain;
-        }
-
-        /* TABEL MATRIKS */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-            table-layout: fixed; /* KUNCI PERBAIKAN: Memaksa tabel membagi ruang dengan seimbang */
-        }
-
-        th, td {
-            border: 1px solid #333;
-            padding: 4px 2px; /* Padding dikurangi agar hemat ruang */
-            text-align: center;
-            word-wrap: break-word;
-            vertical-align: middle;
-        }
-
-        th {
-            background-color: #f3f4f6;
-            font-weight: bold;
-        }
-
+        .chart-container img { width: 100%; height: auto; max-height: 165mm; object-fit: contain; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
+        th, td { border: 1px solid #333; padding: 4px 2px; text-align: center; word-wrap: break-word; vertical-align: middle; }
+        th { background-color: #f3f4f6; font-weight: bold; }
         .text-left { text-align: left; }
-
-        /* Pengaturan Lebar Kolom Proporsional */
         .col-kode { width: 6%; }
         .col-uraian { width: 25%; }
         .col-bobot { width: 4%; }
         .col-total { width: 6%; }
-        /* Sisa ruang akan dibagi rata otomatis untuk kolom M-1, M-2, dst */
     </style>
 </head>
 <body>
 
-    <!-- ========================================== -->
-    <!-- HALAMAN 1: GRAFIK KURVA S PENUH -->
-    <!-- ========================================== -->
     @if(!empty($chartImageBase64))
     <div class="chart-container">
         <h2>GRAFIK KURVA S & JADWAL PROYEK</h2>
         <p>{{ strtoupper($project->nama_proyek) }}</p>
         <img src="{{ $chartImageBase64 }}" alt="Grafik Kurva S">
     </div>
-
-    <!-- PISAHKAN HALAMAN DI SINI -->
     <div class="page-break"></div>
     @endif
 
-    <!-- ========================================== -->
-    <!-- HALAMAN 2 DST: TABEL MATRIKS -->
-    <!-- ========================================== -->
     <div class="table-container">
         @if(empty($chartImageBase64))
             <h2 style="text-align:center; margin-bottom: 15px;">MATRIKS SCHEDULE PROYEK - {{ strtoupper($project->nama_proyek) }}</h2>
         @else
             <h3 style="margin-bottom: 10px; text-align: center;">TABEL RINCIAN MATRIKS REALISASI</h3>
         @endif
+@endif
 
         <table>
             <thead>
@@ -96,7 +54,6 @@
             </thead>
             <tbody>
                 @foreach($rabData as $divisi)
-                    <!-- BARIS KATEGORI / DIVISI -->
                     <tr style="background-color: #f8fafc;">
                         <td class="text-left"><b>{{ $divisi['kode_divisi'] }}</b></td>
                         <td class="text-left" colspan="{{ count($localWeeks) + 3 }}"><b>{{ $divisi['nama_kategori'] }}</b></td>
@@ -104,13 +61,11 @@
 
                     @foreach($divisi['items'] as $item)
                         @if($item->is_subheader)
-                            <!-- BARIS SUBHEADER -->
                             <tr style="background-color: #fdf6e3;">
                                 <td class="text-left" style="font-weight: bold; color: #d97706;">{{ $item->kode_pekerjaan }}</td>
                                 <td class="text-left" colspan="{{ count($localWeeks) + 3 }}"><b>{{ $item->uraian_pekerjaan }}</b></td>
                             </tr>
                         @else
-                            <!-- BARIS ITEM PEKERJAAN -->
                             <tr>
                                 <td class="text-left" style="font-size: 7px;">{{ $item->kode_pekerjaan }}</td>
                                 <td class="text-left">{{ $item->uraian_pekerjaan }}</td>
@@ -134,7 +89,6 @@
             </tbody>
 
             <tfoot>
-                <!-- BARIS 1: AKTUAL MINGGUAN -->
                 <tr style="background-color: #ecfdf5;">
                     <th colspan="3" style="text-align: right; color: #059669;">Total Aktual / Realisasi</th>
                     @php
@@ -151,7 +105,6 @@
                     <th style="color: #059669;">{{ number_format(array_sum($weekly_actual), 2) }}%</th>
                 </tr>
 
-                <!-- BARIS 2: TARGET RENCANA -->
                 <tr style="background-color: #eff6ff;">
                     <th colspan="3" style="text-align: right; color: #2563eb;">Target Kumulatif Mingguan</th>
                     @foreach($localWeeks as $w)
@@ -160,7 +113,6 @@
                     <th style="color: #2563eb;">-</th>
                 </tr>
 
-                <!-- BARIS 3: DEVIASI -->
                 <tr style="background-color: #fffbeb;">
                     <th colspan="3" style="text-align: right; color: #b45309;">Deviasi (Aktual - Target)</th>
                     @php $runningActual = 0; @endphp
@@ -170,12 +122,12 @@
                             $runningActual += $wAct;
                             $showCum = ($maxReportedWeek > 0 && $w->minggu_ke <= $maxReportedWeek);
                             $devStr = '-';
-                            $color = '#4b5563'; // abu-abu standar
+                            $color = '#4b5563';
 
                             if ($showCum) {
                                 $dev = $runningActual - $w->target_kumulatif;
                                 $devStr = $dev > 0 ? '+'.number_format($dev, 2) : number_format($dev, 2);
-                                $color = $dev < 0 ? '#dc2626' : ($dev > 0 ? '#059669' : '#d97706'); // merah, hijau, oren
+                                $color = $dev < 0 ? '#dc2626' : ($dev > 0 ? '#059669' : '#d97706');
                             }
                         @endphp
                         <th style="color: {{ $color }};">{{ $devStr }}</th>
@@ -184,7 +136,9 @@
                 </tr>
             </tfoot>
         </table>
-    </div>
 
+@if(!isset($isExcel) || !$isExcel)
+    </div>
 </body>
 </html>
+@endif
