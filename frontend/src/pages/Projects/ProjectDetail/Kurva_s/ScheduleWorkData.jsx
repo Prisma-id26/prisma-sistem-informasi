@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Target, Info, Activity, CheckCircle2, Clock, X, CalendarDays, Inbox, Plus, Trash2, Edit3, Check, Loader2, Eye, EyeOff } from 'lucide-react';
 import api from '../../../../api';
 
@@ -76,36 +76,114 @@ export default function ScheduleWorkData({
   const extraCols = isEditMode && canCreateData ? 4 : 3;
 
   // =========================================================================
-  // MESIN KALKULASI FOOTER: Mingguan Aktual & Deviasi (Tanpa Kumulatif View)
+  // OPTIMASI MENGGUNAKAN useMemo: Menghindari Kalkulasi Ulang Saat Edit Data
   // =========================================================================
-  let runningActual = 0;
-  const weeklyMetrics = {};
-  let maxReportedWeek = 0;
-  
-  if (scheduleData?.weekly_actual) {
-      Object.keys(scheduleData.weekly_actual).forEach(k => {
-          if (parseInt(k) > maxReportedWeek) maxReportedWeek = parseInt(k);
-      });
-  }
+  const weeklyMetrics = useMemo(() => {
+    let runningActual = 0;
+    const metrics = {};
+    let maxReportedWeek = 0;
+    
+    if (scheduleData?.weekly_actual) {
+        Object.keys(scheduleData.weekly_actual).forEach(k => {
+            if (parseInt(k) > maxReportedWeek) maxReportedWeek = parseInt(k);
+        });
+    }
 
-  weeksArray.forEach(w => {
-      const weekActual = getSafeFloat(scheduleData?.weekly_actual?.[w]);
-      runningActual += weekActual;
-      
-      const existingTarget = getSafeFloat(safeLocalWeeks.find(week => parseInt(week.minggu_ke) === w)?.target_kumulatif);
-      let deviation = null;
+    weeksArray.forEach(w => {
+        const weekActual = getSafeFloat(scheduleData?.weekly_actual?.[w]);
+        runningActual += weekActual;
+        
+        const existingTarget = getSafeFloat(safeLocalWeeks.find(week => parseInt(week.minggu_ke) === w)?.target_kumulatif);
+        let deviation = null;
 
-      // Hanya kalkulasi Deviasi sampai di minggu terakhir laporan harian dibuat
-      if (maxReportedWeek > 0 && w <= maxReportedWeek) {
-          deviation = runningActual - existingTarget;
-      }
+        if (maxReportedWeek > 0 && w <= maxReportedWeek) {
+            deviation = runningActual - existingTarget;
+        }
 
-      weeklyMetrics[w] = {
-          actual: weekActual,
-          target: existingTarget,
-          deviation: deviation
-      };
-  });
+        metrics[w] = {
+            actual: weekActual,
+            target: existingTarget,
+            deviation: deviation
+        };
+    });
+
+    return metrics;
+  }, [scheduleData?.weekly_actual, weeksArray, safeLocalWeeks]);
+
+  // OPTIMASI: Matriks Body dibungkus useMemo agar tidak dirender ulang kecuali data berubah
+  const renderedTableBody = useMemo(() => {
+    if (displayRabData.length === 0) {
+      return (
+        <tr>
+          <td colSpan={weeksArray.length + (isEditMode && canCreateData ? 6 : 5)} className="p-10 text-center bg-white dark:bg-slate-800/40">
+            <div className="flex flex-col items-center justify-center max-w-md mx-auto border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-6">
+              <Inbox className="w-8 h-8 text-slate-300 dark:text-slate-600 mb-2" />
+              <h4 className="font-bold text-slate-700 dark:text-slate-300 text-xs mb-1">Belum Ada Realisasi Pekerjaan</h4>
+              <p className="text-slate-500 dark:text-slate-400 text-[11px] leading-relaxed">
+                Daftar uraian pekerjaan otomatis muncul di tabel matriks ini bila <strong>Laporan Harian</strong> telah disetujui (*Approved*).
+              </p>
+            </div>
+          </td>
+        </tr>
+      );
+    }
+
+    return displayRabData.map(cat => {
+      const safeItems = Array.isArray(cat?.items) ? cat.items : (cat?.items ? Object.values(cat.items) : []);
+      return (
+        <React.Fragment key={cat.id || Math.random()}>
+          <tr className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-700/50">
+            <td className="p-2 font-bold text-[10px] text-slate-700 dark:text-slate-300 text-center border-r border-slate-200 dark:border-slate-700/60 sticky left-0 z-20 bg-slate-50 dark:bg-slate-900/90 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{cat.kode_divisi || '-'}</td>
+            <td colSpan={weeksArray.length + extraCols} className="p-2 font-extrabold text-[11px] text-slate-800 dark:text-white uppercase sticky left-[75px] z-20 bg-slate-50 dark:bg-slate-900/90 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-700/60">{cat.nama_kategori || 'Kategori'}</td>
+          </tr>
+          
+          {safeItems.map(item => {
+            const bobotStandar = grandTotalRAB > 0 ? getSafeFloat((Number(item.total_harga || 0) / grandTotalRAB) * 100) : 0;
+            const itemCumulative = getSafeFloat(scheduleData?.cumulative_actual?.[item.id]);
+
+            return (
+              <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors group">
+                <td className="p-2 font-mono text-[10px] text-slate-500 text-center border-r border-slate-200 dark:border-slate-700/60 sticky left-0 z-20 bg-white dark:bg-slate-800 group-hover:bg-slate-50 dark:group-hover:bg-slate-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{item.kode_pekerjaan || '-'}</td>
+                <td className="p-2 text-[11px] font-medium border-r border-slate-200 dark:border-slate-700/60 sticky left-[75px] z-20 bg-white dark:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-slate-50 dark:group-hover:bg-slate-700">
+                  <div className="line-clamp-2" title={item.uraian_pekerjaan}>{item.uraian_pekerjaan}</div>
+                </td>
+                <td className="p-2 text-center font-mono text-[10px] font-extrabold text-blue-600 dark:text-blue-400 border-r border-slate-200 dark:border-slate-700/60 bg-blue-50/30 dark:bg-blue-900/10">
+                  {`${bobotStandar.toFixed(2)}%`}
+                </td>
+
+                {weeksArray.map(w => {
+                  const totalActual = getSafeFloat(scheduleData?.matrix_actual?.[item.id]?.[w]);
+                  const isExist = scheduleData?.matrix_actual?.[item.id]?.[w] !== undefined;
+                  
+                  return (
+                    <td key={w} className="p-1.5 text-center border-r border-slate-200 dark:border-slate-700/60 relative">
+                      {isExist ? (
+                        <button 
+                          onClick={() => handleOpenCellDetail({ ...item, kategori_nama: cat.nama_kategori }, w)}
+                          title="Klik untuk lihat rincian laporan"
+                          className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors cursor-pointer shadow-sm active:scale-95 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-800/40 border-emerald-200 dark:border-emerald-800/30"
+                        >
+                          {totalActual.toFixed(2)}
+                        </button>
+                      ) : (
+                        <span className="text-slate-300 dark:text-slate-600 text-[10px]">-</span>
+                      )}
+                    </td>
+                  );
+                })}
+
+                {isEditMode && canCreateData && <td className="p-1.5 border-r border-slate-200 dark:border-slate-700/60 bg-emerald-50/5 dark:bg-emerald-900/5"></td>}
+
+                <td className="p-2 text-right font-mono text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/10">
+                  {itemCumulative > 0 ? `${itemCumulative.toFixed(2)}%` : '0.00%'}
+                </td>
+              </tr>
+            );
+          })}
+        </React.Fragment>
+      );
+    });
+  }, [displayRabData, weeksArray, scheduleData?.matrix_actual, scheduleData?.cumulative_actual, grandTotalRAB, isEditMode, canCreateData, extraCols]);
   // =========================================================================
 
   return (
@@ -164,75 +242,7 @@ export default function ScheduleWorkData({
             </thead>
 
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/30 text-slate-700 dark:text-slate-300">
-              {displayRabData.length === 0 ? (
-                <tr>
-                  <td colSpan={weeksArray.length + (isEditMode && canCreateData ? 6 : 5)} className="p-10 text-center bg-white dark:bg-slate-800/40">
-                    <div className="flex flex-col items-center justify-center max-w-md mx-auto border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-6">
-                      <Inbox className="w-8 h-8 text-slate-300 dark:text-slate-600 mb-2" />
-                      <h4 className="font-bold text-slate-700 dark:text-slate-300 text-xs mb-1">Belum Ada Realisasi Pekerjaan</h4>
-                      <p className="text-slate-500 dark:text-slate-400 text-[11px] leading-relaxed">
-                        Daftar uraian pekerjaan otomatis muncul di tabel matriks ini bila <strong>Laporan Harian</strong> telah disetujui (*Approved*).
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                displayRabData.map(cat => {
-                  const safeItems = Array.isArray(cat?.items) ? cat.items : (cat?.items ? Object.values(cat.items) : []);
-                  return (
-                    <React.Fragment key={cat.id || Math.random()}>
-                      <tr className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-700/50">
-                        <td className="p-2 font-bold text-[10px] text-slate-700 dark:text-slate-300 text-center border-r border-slate-200 dark:border-slate-700/60 sticky left-0 z-20 bg-slate-50 dark:bg-slate-900/90 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{cat.kode_divisi || '-'}</td>
-                        <td colSpan={weeksArray.length + extraCols} className="p-2 font-extrabold text-[11px] text-slate-800 dark:text-white uppercase sticky left-[75px] z-20 bg-slate-50 dark:bg-slate-900/90 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] border-r border-slate-200 dark:border-slate-700/60">{cat.nama_kategori || 'Kategori'}</td>
-                      </tr>
-                      
-                      {safeItems.map(item => {
-                        const bobotStandar = grandTotalRAB > 0 ? getSafeFloat((Number(item.total_harga || 0) / grandTotalRAB) * 100) : 0;
-                        const itemCumulative = getSafeFloat(scheduleData?.cumulative_actual?.[item.id]);
-
-                        return (
-                          <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors group">
-                            <td className="p-2 font-mono text-[10px] text-slate-500 text-center border-r border-slate-200 dark:border-slate-700/60 sticky left-0 z-20 bg-white dark:bg-slate-800 group-hover:bg-slate-50 dark:group-hover:bg-slate-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">{item.kode_pekerjaan || '-'}</td>
-                            <td className="p-2 text-[11px] font-medium border-r border-slate-200 dark:border-slate-700/60 sticky left-[75px] z-20 bg-white dark:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-slate-50 dark:group-hover:bg-slate-700">
-                              <div className="line-clamp-2" title={item.uraian_pekerjaan}>{item.uraian_pekerjaan}</div>
-                            </td>
-                            <td className="p-2 text-center font-mono text-[10px] font-extrabold text-blue-600 dark:text-blue-400 border-r border-slate-200 dark:border-slate-700/60 bg-blue-50/30 dark:bg-blue-900/10">
-                              {`${bobotStandar.toFixed(2)}%`}
-                            </td>
-
-                            {weeksArray.map(w => {
-                              const totalActual = getSafeFloat(scheduleData?.matrix_actual?.[item.id]?.[w]);
-                              const isExist = scheduleData?.matrix_actual?.[item.id]?.[w] !== undefined;
-                              
-                              return (
-                                <td key={w} className="p-1.5 text-center border-r border-slate-200 dark:border-slate-700/60 relative">
-                                  {isExist ? (
-                                    <button 
-                                      onClick={() => handleOpenCellDetail({ ...item, kategori_nama: cat.nama_kategori }, w)}
-                                      title="Klik untuk lihat rincian laporan"
-                                      className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors cursor-pointer shadow-sm active:scale-95 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-800/40 border-emerald-200 dark:border-emerald-800/30"
-                                    >
-                                      {totalActual.toFixed(2)}
-                                    </button>
-                                  ) : (
-                                    <span className="text-slate-300 dark:text-slate-600 text-[10px]">-</span>
-                                  )}
-                                </td>
-                              );
-                            })}
-
-                            {isEditMode && canCreateData && <td className="p-1.5 border-r border-slate-200 dark:border-slate-700/60 bg-emerald-50/5 dark:bg-emerald-900/5"></td>}
-
-                            <td className="p-2 text-right font-mono text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/10">
-                              {itemCumulative > 0 ? `${itemCumulative.toFixed(2)}%` : '0.00%'}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </React.Fragment>
-                  );
-                })
-              )}
+              {renderedTableBody}
             </tbody>
             
             <tfoot className="sticky bottom-0 z-30 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
