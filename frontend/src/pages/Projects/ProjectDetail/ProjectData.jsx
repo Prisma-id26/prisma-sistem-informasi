@@ -5,7 +5,7 @@ import {
   Calendar, MapPin, DollarSign, HardHat, 
   UserCheck, Compass, FileText, TrendingUp, FileSpreadsheet, Info, 
   Clock, Download, Users, CheckCircle2, Activity, 
-  AlertTriangle, Edit3, Trash2, UploadCloud, Plus, Loader2, FileSignature, X, Camera
+  AlertTriangle, Edit3, Trash2, UploadCloud, Plus, Loader2, FileSignature, X, Camera, Image
 } from 'lucide-react';
 
 // CACHE MEMORI: Simpan detail proyek per ID agar langsung muncul instan saat dibuka kembali
@@ -484,7 +484,7 @@ export default function ProjectData() {
             )}
           </div>
 
-          {/* BOKS KANAN: NAVIGASI TAB MENU (TAB DATA AKTIF ORANYE AMBER) */}
+          {/* BOKS KANAN: NAVIGASI TAB MENU (DENGAN TAB GALLERY BARU) */}
           <div className="flex items-center justify-between sm:justify-start gap-1 bg-white dark:bg-slate-800/80 px-1.5 h-10 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-x-auto custom-scrollbar z-0 shrink-0">
             <button 
               type="button"
@@ -523,6 +523,16 @@ export default function ProjectData() {
             >
               <Compass className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
               <span>Peta GIS</span>
+            </button>
+
+            {/* TAB GALLERY BARU */}
+            <button 
+              type="button"
+              onClick={() => navigate(`/projects/${id}/gallery`, { state: project })} 
+              className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0"
+            >
+              <Image className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
+              <span>Gallery</span>
             </button>
           </div>
 
