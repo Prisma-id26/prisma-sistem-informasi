@@ -34,6 +34,18 @@ export default function KurvaS({ selectedProject }) {
   const canCreateData = ['Administrator', 'Team Leader', 'Pengawas Lapangan'].includes(userRole);
   const isGuest = userRole === 'Tamu';
 
+  // =========================================================================
+  // OPTIMASI: DEFERRED RENDERING (Anti-Lag Pindah Tab)
+  // =========================================================================
+  const [isRenderingUI, setIsRenderingUI] = useState(true);
+
+  useEffect(() => {
+    setIsRenderingUI(true);
+    // Beri "nafas" 50ms ke browser agar UI navigasi tab berpindah instan tanpa nge-freeze
+    const timer = setTimeout(() => setIsRenderingUI(false), 50);
+    return () => clearTimeout(timer);
+  }, [projectId]);
+
   const getInitialSchedule = () => {
     if (cachedScheduleDetails[projectId]) return cachedScheduleDetails[projectId];
     return null;
@@ -75,7 +87,6 @@ export default function KurvaS({ selectedProject }) {
   const [showActualCurve, setShowActualCurve] = useState(true);
   const [showDeviationCurve, setShowDeviationCurve] = useState(true);
 
-  // HELPER MENDAPATKAN WARNA KATEGORI
   const getCategoryStyle = (kat) => {
     switch (kat) {
       case 'Infrastruktur Jalan & Jembatan': return 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600';
@@ -149,6 +160,13 @@ export default function KurvaS({ selectedProject }) {
   const formatIndoDate = (dateString) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const formatDateSlash = (dateStr) => {
+    if (!dateStr) return '-';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return dateStr;
   };
 
   const fetchSchedule = async (silent = false) => {
@@ -298,9 +316,136 @@ export default function KurvaS({ selectedProject }) {
   };
 
   // =========================================================================
-  // OPTIMASI: AMBIL DATA LANGSUNG DARI BACKEND
+  // OPTIMASI: HYBRID DATA CALCULATION (Aman dari Bug Cache Kosong)
   // =========================================================================
-  const fullChartData = scheduleData?.full_chart_data || [];
+  const fullChartData = useMemo(() => {
+    if (!scheduleData) return [];
+
+    // 1. OPSI PERTAMA: Jika Backend sudah mengirim data matang, konversi key-nya dan gunakan!
+    if (scheduleData.full_chart_data && scheduleData.full_chart_data.length > 0) {
+      return scheduleData.full_chart_data.map(item => ({
+        hariKe: item.hariKe ?? item.hari_ke,
+        label: item.label,
+        dateString: item.dateString ?? item.date_string,
+        dateSlash: item.dateSlash ?? item.date_slash,
+        displayDate: item.displayDate ?? item.display_date,
+        shortDate: item.shortDate ?? item.short_date,
+        mingguKe: item.mingguKe ?? item.minggu_ke,
+        targetKumulatifMingguan: item.targetKumulatifMingguan ?? item.target_kumulatif_mingguan,
+        rencanaKumulatif: item.rencanaKumulatif ?? item.rencana_kumulatif,
+        bobotRealisasi: item.bobotRealisasi ?? item.bobot_realisasi,
+        realisasiKumulatif: item.realisasiKumulatif ?? item.realisasi_kumulatif,
+        deviasiKumulatif: item.deviasiKumulatif ?? item.deviasi_kumulatif,
+        hasReportToday: item.hasReportToday ?? item.has_report_today
+      }));
+    }
+
+    // 2. OPSI KEDUA: Jika data dari backend KOSONG (karena nyangkut di Cache lama),
+    // React akan langsung menghitungnya sebagai fallback agar grafik tidak Blank!
+    const parseLocalDate = (dateStr) => {
+      if (!dateStr) return new Date();
+      const cleanStr = dateStr.split(' ')[0].split('T')[0];
+      const [y, m, d] = cleanStr.split('-');
+      return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+    };
+
+    const weekMap = {};
+    const safeSchedules = Array.isArray(scheduleData.schedules) ? scheduleData.schedules : (scheduleData.schedules ? Object.values(scheduleData.schedules) : []);
+    
+    safeSchedules.forEach(s => {
+      const w = parseInt(s.minggu_ke);
+      if (!weekMap[w]) weekMap[w] = { minggu_ke: w, bulan: s.bulan || null, tanggal_awal: s.tanggal_awal || null, tanggal_akhir: s.tanggal_akhir || null, target_kumulatif: 0 };
+      weekMap[w].target_kumulatif += getSafeFloat(s.target_kumulatif);
+      if (!weekMap[w].tanggal_awal && s.tanggal_awal) weekMap[w].tanggal_awal = s.tanggal_awal;
+      if (!weekMap[w].tanggal_akhir && s.tanggal_akhir) weekMap[w].tanggal_akhir = s.tanggal_akhir;
+    });
+
+    const sortedWeeks = Object.values(weekMap).sort((a, b) => a.minggu_ke - b.minggu_ke);
+
+    const dailyRealisasi = {};
+    const dailyRealisasiWeeks = {};
+    let maxReportedDayStr = '';
+
+    const safeRealizations = Array.isArray(scheduleData.realizations) ? scheduleData.realizations : (scheduleData.realizations ? Object.values(scheduleData.realizations) : []);
+
+    safeRealizations.forEach(r => {
+      if (!r.tgl_input) return;
+      const ymd = r.tgl_input.split('T')[0].split(' ')[0]; 
+      dailyRealisasi[ymd] = getSafeFloat(dailyRealisasi[ymd]) + getSafeFloat(r.bobot_realisasi);
+      if (r.minggu_ke) dailyRealisasiWeeks[ymd] = r.minggu_ke;
+      if (!maxReportedDayStr || ymd > maxReportedDayStr) maxReportedDayStr = ymd;
+    });
+
+    const pStart = scheduleData.project_info?.tanggal_mulai ? parseLocalDate(scheduleData.project_info.tanggal_mulai) : new Date(); pStart.setHours(0,0,0,0);
+    const pEnd = scheduleData.project_info?.tanggal_selesai ? parseLocalDate(scheduleData.project_info.tanggal_selesai) : new Date(pStart.getTime() + (30 * 24 * 3600 * 1000)); pEnd.setHours(0,0,0,0);
+
+    let minDate = new Date(pStart); let maxDate = new Date(pEnd);
+    sortedWeeks.forEach(w => {
+      if (w.tanggal_awal) { const d = parseLocalDate(w.tanggal_awal); if (d < minDate) minDate = d; }
+      if (w.tanggal_akhir) { const d = parseLocalDate(w.tanggal_akhir); if (d > maxDate) maxDate = d; }
+    });
+    if (maxReportedDayStr) { const d = parseLocalDate(maxReportedDayStr); if (d > maxDate) maxDate = d; }
+
+    minDate.setHours(0,0,0,0); maxDate.setHours(0,0,0,0);
+    const totalDays = Math.max(1, Math.floor((maxDate - minDate) / (1000 * 3600 * 24)) + 1);
+
+    const tempChartData = [];
+    let cumRealisasi = 0;
+    let hasAnyReportEver = safeRealizations.length > 0;
+
+    for (let i = 0; i < totalDays; i++) {
+      const currDate = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate() + i);
+      const yyyy = currDate.getFullYear();
+      const mm = String(currDate.getMonth() + 1).padStart(2, '0');
+      const dd = String(currDate.getDate()).padStart(2, '0');
+      const yyyymmdd = `${yyyy}-${mm}-${dd}`; 
+
+      const shortDate = currDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+      const displayDate = currDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+      const dateSlash = formatDateSlash(yyyymmdd);
+
+      let matchedWeek = sortedWeeks.find(w => w.tanggal_awal && w.tanggal_akhir && yyyymmdd >= w.tanggal_awal && yyyymmdd <= w.tanggal_akhir);
+      let currentWeekNum = null;
+
+      if (dailyRealisasiWeeks[yyyymmdd]) {
+        currentWeekNum = parseInt(dailyRealisasiWeeks[yyyymmdd]);
+        if (!matchedWeek && weekMap[currentWeekNum]) matchedWeek = weekMap[currentWeekNum];
+      } else if (matchedWeek) {
+        currentWeekNum = matchedWeek.minggu_ke;
+      } else {
+        const diffFromStart = Math.floor((currDate - pStart) / (1000 * 3600 * 24));
+        currentWeekNum = diffFromStart >= 0 ? Math.floor(diffFromStart / 7) + 1 : 0;
+      }
+
+      const targetKumulatifMingguan = matchedWeek ? getSafeFloat(matchedWeek.target_kumulatif) : null;
+      const actVal = getSafeFloat(dailyRealisasi[yyyymmdd]);
+      const hasReportToday = dailyRealisasi[yyyymmdd] !== undefined;
+
+      if (hasReportToday) cumRealisasi += actVal;
+      
+      let finalRealisasiKumulatif = null;
+      let finalDeviasi = null;
+
+      if (hasAnyReportEver) {
+          if (maxReportedDayStr && yyyymmdd > maxReportedDayStr) {
+              finalRealisasiKumulatif = null; 
+          } else {
+              finalRealisasiKumulatif = getSafeFloat(cumRealisasi);
+              if (targetKumulatifMingguan !== null) {
+                  finalDeviasi = getSafeFloat(cumRealisasi - targetKumulatifMingguan);
+              }
+          }
+      }
+
+      tempChartData.push({
+        hariKe: i + 1, label: `H-${(i + 1).toString().padStart(2, '0')}`, dateString: yyyymmdd, dateSlash, displayDate, shortDate, mingguKe: currentWeekNum,
+        targetKumulatifMingguan, rencanaKumulatif: targetKumulatifMingguan, bobotRealisasi: actVal,
+        realisasiKumulatif: finalRealisasiKumulatif, deviasiKumulatif: finalDeviasi, hasReportToday
+      });
+    }
+    
+    return tempChartData;
+  }, [scheduleData]);
 
   const chartData = useMemo(() => {
     if (fullChartData.length === 0) return [];
@@ -425,6 +570,16 @@ export default function KurvaS({ selectedProject }) {
   };
 
   const isScheduleEmpty = !scheduleData?.schedules || scheduleData.schedules.length === 0;
+
+  // RENDER INTERMEDIATE JIKA SEDANG DEFERRED RENDERING
+  if (isRenderingUI) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[40vh] w-full bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl shadow-sm animate-fade-in">
+        <Loader2 className="w-10 h-10 text-amber-500 animate-spin mb-4" />
+        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Menyusun Matriks Tabel & Grafik...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full space-y-3.5 pb-2 relative animate-fade-in flex flex-col">

@@ -20,13 +20,11 @@ use App\Services\KurvaService;
 class ProjectScheduleController extends Controller
 {
     private $progressService;
-    private $kurvaService;
 
-    // SUNTIKKAN SERVICE KE CONSTRUCTOR
-    public function __construct(ProjectProgressService $progressService, KurvaService $kurvaService)
+    // Hapus KurvaService dari constructor untuk mencegah masalah Binding
+    public function __construct(ProjectProgressService $progressService)
     {
         $this->progressService = $progressService;
-        $this->kurvaService = $kurvaService;
     }
 
     private function autoHealLegacyManualItems($projectId)
@@ -61,7 +59,6 @@ class ProjectScheduleController extends Controller
         try {
             $this->autoHealLegacyManualItems($projectId);
 
-            // Pass kurvaService ke dalam closure cache
             $data = ProjectCacheService::rememberSchedule($projectId, function () use ($projectId) {
                 $projectInfo = DB::table('projects')->where('id', $projectId)->first();
                 $grandTotalRAB = $this->progressService->calculateTotalProjectValue($projectId);
@@ -125,16 +122,15 @@ class ProjectScheduleController extends Controller
                     }
                 }
 
-                // ==========================================================
-                // EKSEKUSI SERVICE DI BACKEND
-                // ==========================================================
-                $chartData = $this->kurvaService->generateChartData($projectInfo, $schedules, $rawRealizations);
+                // EKSEKUSI SERVICE SECARA LANGSUNG (ANTI CRASH)
+                $kurvaService = new \App\Services\KurvaService();
+                $chartData = $kurvaService->generateChartData($projectInfo, $schedules, $rawRealizations);
 
                 return [
                     'project_info' => $projectInfo, 'grand_total_rab' => (float) $grandTotalRAB, 'rab_data' => $rabData,
                     'schedules' => $schedules, 'matrix_actual' => $matrix_actual, 'weekly_actual' => $weekly_actual,
                     'cumulative_actual' => $cumulative_actual, 'realizations' => $rawRealizations,
-                    'full_chart_data' => $chartData // KEMBALIKAN KE FRONTEND
+                    'full_chart_data' => $chartData
                 ];
             });
 
@@ -143,6 +139,7 @@ class ProjectScheduleController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Backend Crash: ' . $e->getMessage() . ' | Line: ' . $e->getLine()], 500);
         }
     }
+
     public function saveSchedules(Request $request, $projectId)
     {
         try {
@@ -269,7 +266,7 @@ class ProjectScheduleController extends Controller
     public function exportKurvaPdf(Request $request, $projectId)
     {
         $exportData = $this->prepareExportData($projectId, $request);
-        $exportData['isExcel'] = false; // FLAG PDF
+        $exportData['isExcel'] = false;
         $exportData['chartImageBase64'] = $request->chart_image ?? null;
 
         $pdf = Pdf::loadView('exports.kurva-s', $exportData)->setPaper('a4', 'landscape');
@@ -281,7 +278,7 @@ class ProjectScheduleController extends Controller
     {
         try {
             $exportData = $this->prepareExportData($projectId, $request);
-            $exportData['isExcel'] = true; // FLAG EXCEL SANGAT PENTING
+            $exportData['isExcel'] = true;
 
             $safeName = preg_replace('/[^A-Za-z0-9\-]/', '_', $exportData['project']->nama_proyek ?? 'Proyek');
             $export = new KurvaExport($exportData);

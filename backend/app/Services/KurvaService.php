@@ -8,6 +8,11 @@ class KurvaService
 {
     public function generateChartData($projectInfo, $schedules, $rawRealizations)
     {
+        // CEK AMAN: Jika proyek tidak ditemukan atau tanggal mulai kosong, kembalikan array kosong
+        if (!$projectInfo || empty($projectInfo->tanggal_mulai)) {
+            return [];
+        }
+
         $weekMap = [];
         foreach ($schedules as $s) {
             $weekMap[$s->minggu_ke] = [
@@ -37,10 +42,6 @@ class KurvaService
             if ($maxReportedDayStr === '' || $dateStr > $maxReportedDayStr) {
                 $maxReportedDayStr = $dateStr;
             }
-        }
-
-        if (empty($projectInfo->tanggal_mulai)) {
-            return []; // Kembalikan array kosong jika proyek belum punya tgl mulai
         }
 
         $pStart = Carbon::parse($projectInfo->tanggal_mulai)->startOfDay();
