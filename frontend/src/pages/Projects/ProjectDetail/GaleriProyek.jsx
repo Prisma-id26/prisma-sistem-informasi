@@ -183,7 +183,7 @@ export default function GaleriProyek() {
                 }`}
               >
                 <Filter className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400 shrink-0" /> 
-                <span>Filter Gambar</span>
+                <span>Filter</span>
               </button>
               
               {/* POPUP TAG SELEKSI MINGGU */}
@@ -274,7 +274,7 @@ export default function GaleriProyek() {
       {selectedWeek !== 'Semua' && (
         <div className="flex flex-wrap gap-2 animate-fade-in -mt-2">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-bold rounded-lg border border-purple-200 dark:border-purple-500/20 shadow-sm">
-            Menampilkan Gambar: Minggu Ke-{selectedWeek}
+            Menampilkan Gambar : {selectedWeek}
             <button onClick={() => setSelectedWeek('Semua')} className="hover:bg-purple-200 dark:hover:bg-purple-500/30 p-0.5 rounded-full transition-colors ml-1">
               <X className="w-3 h-3"/>
             </button>
