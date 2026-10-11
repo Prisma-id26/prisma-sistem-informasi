@@ -3,7 +3,7 @@ import html2canvas from 'html2canvas';
 import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import api from '../../../api';
 import { 
-  TrendingUp, ArrowLeft, Info, FileSpreadsheet, Compass, 
+  TrendingUp, ArrowLeft, Info, FileSpreadsheet, Compass, Image as ImageIcon,
   Download, CheckCircle2, AlertTriangle, Loader2, Filter, X,
   CalendarDays, Edit3, Save, ListPlus, Target, Plus, Trash2, Calendar
 } from 'lucide-react';
@@ -79,6 +79,18 @@ export default function KurvaS({ selectedProject }) {
   const [showPlanCurve, setShowPlanCurve] = useState(true);
   const [showActualCurve, setShowActualCurve] = useState(true);
   const [showDeviationCurve, setShowDeviationCurve] = useState(true);
+
+  // HELPER MENDAPATKAN WARNA KATEGORI
+  const getCategoryStyle = (kat) => {
+    switch (kat) {
+      case 'Infrastruktur Jalan & Jembatan': return 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600';
+      case 'Gedung & Bangunan Sipil': return 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50';
+      case 'Sumber Daya Air & Irigasi': return 'bg-cyan-50 text-cyan-600 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-400 dark:border-cyan-800/50';
+      case 'Tata Lingkungan & Sanitasi': return 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50';
+      case 'Preservasi Jalan': return 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50';
+      default: return 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800/50';
+    }
+  };
 
   const handleInitialWeekChange = (id, field, value) => {
     setWeeksForm(weeksForm.map(w => w.id === id ? { ...w, [field]: value } : w));
@@ -473,17 +485,6 @@ export default function KurvaS({ selectedProject }) {
     return null;
   };
 
-  const getCategoryStyle = (kat) => {
-    switch (kat) {
-      case 'Infrastruktur Jalan & Jembatan': return 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600';
-      case 'Gedung & Bangunan Sipil': return 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50';
-      case 'Sumber Daya Air & Irigasi': return 'bg-cyan-50 text-cyan-600 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-400 dark:border-cyan-800/50';
-      case 'Tata Lingkungan & Sanitasi': return 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50';
-      case 'Preservasi Jalan': return 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50';
-      default: return 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800/50';
-    }
-  };
-
   const executeExport = async () => {
     const type = exportModal.type;
     setExportModal({ show: false, type: '' });
@@ -651,16 +652,19 @@ export default function KurvaS({ selectedProject }) {
           {/* BOKS KANAN: NAVIGASI TAB MENU */}
           <div className="flex items-center justify-between sm:justify-start gap-1 bg-white dark:bg-slate-800/80 px-1.5 h-10 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-x-auto custom-scrollbar z-0 shrink-0">
             <button onClick={() => navigate(`/projects/${projectId}/data`, { state: project })} className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap">
-              <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span>Data</span>
+              <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span className="hidden sm:inline">Data</span>
             </button>
             <button onClick={() => navigate(`/projects/${projectId}/rab`, { state: project })} className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap">
-              <FileSpreadsheet className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span>RAB</span>
+              <FileSpreadsheet className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span className="hidden sm:inline">RAB</span>
             </button>
             <button className="flex items-center justify-center gap-1.5 h-7 px-2.5 bg-amber-500 text-white dark:text-slate-950 text-[10px] sm:text-[11px] font-bold rounded-lg shadow-sm whitespace-nowrap cursor-default">
-              <TrendingUp className="w-3.5 h-3.5 shrink-0" /> <span>Kurva Schedule</span>
+              <TrendingUp className="w-3.5 h-3.5 shrink-0" /> <span className="hidden sm:inline">Kurva Schedule</span>
             </button>
             <button onClick={() => navigate(`/projects/${projectId}/peta-gis`, { state: project })} className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap">
-              <Compass className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span>Peta GIS</span>
+              <Compass className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span className="hidden sm:inline">Peta GIS</span>
+            </button>
+            <button onClick={() => navigate(`/projects/${projectId}/gallery`, { state: project })} className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0">
+              <ImageIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span className="hidden sm:inline">Gallery</span>
             </button>
           </div>
 
