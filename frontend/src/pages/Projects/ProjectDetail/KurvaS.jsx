@@ -318,28 +318,10 @@ export default function KurvaS({ selectedProject }) {
   };
 
   // =========================================================================
-  // HYBRID DATA CALCULATION DENGAN LOGIKA ANTI-DUPLIKAT
+  // MESIN PERHITUNGAN DATA HARIAN (BERJALAN DI FRONTEND SUPER CEPAT)
   // =========================================================================
   const fullChartData = useMemo(() => {
     if (!scheduleData) return [];
-
-    if (scheduleData.full_chart_data && scheduleData.full_chart_data.length > 0) {
-      return scheduleData.full_chart_data.map(item => ({
-        hariKe: item.hariKe ?? item.hari_ke,
-        label: item.label,
-        dateString: item.dateString ?? item.date_string,
-        dateSlash: item.dateSlash ?? item.date_slash,
-        displayDate: item.displayDate ?? item.display_date,
-        shortDate: item.shortDate ?? item.short_date,
-        mingguKe: item.mingguKe ?? item.minggu_ke,
-        targetKumulatifMingguan: item.targetKumulatifMingguan ?? item.target_kumulatif_mingguan,
-        rencanaKumulatif: item.rencanaKumulatif ?? item.rencana_kumulatif,
-        bobotRealisasi: item.bobotRealisasi ?? item.bobot_realisasi,
-        realisasiKumulatif: item.realisasiKumulatif ?? item.realisasi_kumulatif,
-        deviasiKumulatif: item.deviasiKumulatif ?? item.deviasi_kumulatif,
-        hasReportToday: item.hasReportToday ?? item.has_report_today
-      }));
-    }
 
     const parseLocalDate = (dateStr) => {
       if (!dateStr) return new Date();
@@ -454,63 +436,55 @@ export default function KurvaS({ selectedProject }) {
   }, [scheduleData]);
 
   // =========================================================================
-  // PERBAIKAN: AGREGASI BULANAN & MINGGUAN (Menyatukan Titik Data agar Ringan)
+  // MESIN AGREGASI (Meringkas Titik Harian Menjadi Mingguan/Bulanan)
   // =========================================================================
   const chartData = useMemo(() => {
     if (fullChartData.length === 0) return [];
+    let filtered = fullChartData;
     
-    // Jika Mode Harian (Memerlukan Filter Tanggal)
+    // Terapkan Filter Tanggal jika Mode Harian
     if (filterMode === 'Harian') {
       if (!startDateFilter || !endDateFilter) return []; 
-      
-      const filtered = fullChartData.filter(d => d.dateString >= startDateFilter && d.dateString <= endDateFilter);
+      filtered = filtered.filter(d => d.dateString >= startDateFilter && d.dateString <= endDateFilter);
       return filtered.map(d => ({ ...d, xAxisLabel: d.shortDate, tooltipLabel: d.displayDate }));
     } 
     
-    // Jika Mode Bulanan (Agregasi Data berdasarkan Bulan Tertinggi)
+    // Agregasi Bulanan (1 Titik per Bulan)
     if (filterMode === 'Bulanan') {
       const monthMap = {};
-      
-      fullChartData.forEach(d => {
+      filtered.forEach(d => {
         const dateObj = new Date(d.dateString);
         const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
         const shortMonth = dateObj.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' });
         const longMonth = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
         
-        // Simpan titik data tertinggi/terakhir di bulan tersebut
-        if (!monthMap[monthKey] || (d.targetKumulatifMingguan !== null && d.targetKumulatifMingguan >= (monthMap[monthKey].targetKumulatifMingguan || 0))) {
-           monthMap[monthKey] = { 
-             ...d, 
-             xAxisLabel: shortMonth, 
-             tooltipLabel: `Bulan: ${longMonth}`,
-             // Timpa label tooltip dengan target kumulatif tertinggi di bulan tersebut
-             rencanaKumulatif: d.targetKumulatifMingguan !== null ? d.targetKumulatifMingguan : monthMap[monthKey]?.rencanaKumulatif,
-             realisasiKumulatif: d.realisasiKumulatif !== null ? d.realisasiKumulatif : monthMap[monthKey]?.realisasiKumulatif,
-             deviasiKumulatif: d.deviasiKumulatif !== null ? d.deviasiKumulatif : monthMap[monthKey]?.deviasiKumulatif
-           };
-        }
+        // Simpan terus titik terakhir di bulan tersebut agar grafik menyatu
+        monthMap[monthKey] = { 
+          ...d, 
+          xAxisLabel: shortMonth, 
+          tooltipLabel: `Bulan: ${longMonth}`,
+          rencanaKumulatif: d.targetKumulatifMingguan !== null ? d.targetKumulatifMingguan : (monthMap[monthKey]?.rencanaKumulatif ?? null),
+          realisasiKumulatif: d.realisasiKumulatif !== null ? d.realisasiKumulatif : (monthMap[monthKey]?.realisasiKumulatif ?? null),
+          deviasiKumulatif: d.deviasiKumulatif !== null ? d.deviasiKumulatif : (monthMap[monthKey]?.deviasiKumulatif ?? null)
+        };
       });
-      
       return Object.values(monthMap);
     } 
     
-    // DEFAULT: Jika Mode Mingguan (Agregasi Data berdasarkan Minggu Tertinggi)
+    // Agregasi Mingguan (1 Titik per Minggu)
     const weekMap = {};
-    fullChartData.forEach(d => {
+    filtered.forEach(d => {
       const wKey = d.mingguKe || 0;
       if (wKey === 0) return; 
       
-      // Ambil titik terakhir di minggu tersebut
-      if (!weekMap[wKey] || (d.targetKumulatifMingguan !== null)) {
-         weekMap[wKey] = { 
-           ...d, 
-           xAxisLabel: `M-${wKey}`, 
-           tooltipLabel: `Minggu Ke-${wKey}`,
-           rencanaKumulatif: d.targetKumulatifMingguan !== null ? d.targetKumulatifMingguan : weekMap[wKey]?.rencanaKumulatif,
-           realisasiKumulatif: d.realisasiKumulatif !== null ? d.realisasiKumulatif : weekMap[wKey]?.realisasiKumulatif,
-           deviasiKumulatif: d.deviasiKumulatif !== null ? d.deviasiKumulatif : weekMap[wKey]?.deviasiKumulatif
-         };
-      }
+      weekMap[wKey] = { 
+        ...d, 
+        xAxisLabel: `M-${wKey}`, 
+        tooltipLabel: `Minggu Ke-${wKey}`,
+        rencanaKumulatif: d.targetKumulatifMingguan !== null ? d.targetKumulatifMingguan : (weekMap[wKey]?.rencanaKumulatif ?? null),
+        realisasiKumulatif: d.realisasiKumulatif !== null ? d.realisasiKumulatif : (weekMap[wKey]?.realisasiKumulatif ?? null),
+        deviasiKumulatif: d.deviasiKumulatif !== null ? d.deviasiKumulatif : (weekMap[wKey]?.deviasiKumulatif ?? null)
+      };
     });
     
     return Object.values(weekMap);
