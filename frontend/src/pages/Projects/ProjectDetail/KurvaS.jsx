@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import html2canvas from 'html2canvas';
 import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import api from '../../../api';
@@ -34,6 +34,14 @@ export default function KurvaS({ selectedProject }) {
   const canCreateData = ['Administrator', 'Team Leader', 'Pengawas Lapangan'].includes(userRole);
   const isGuest = userRole === 'Tamu';
 
+  const [isRenderingUI, setIsRenderingUI] = useState(true);
+
+  useEffect(() => {
+    setIsRenderingUI(true);
+    const timer = setTimeout(() => setIsRenderingUI(false), 50);
+    return () => clearTimeout(timer);
+  }, [projectId]);
+
   const getInitialSchedule = () => {
     if (cachedScheduleDetails[projectId]) return cachedScheduleDetails[projectId];
     return null;
@@ -60,9 +68,6 @@ export default function KurvaS({ selectedProject }) {
   const [filterSelection, setFilterSelection] = useState({ bulanLabel: '', mingguNum: '', rentangStart: '', rentangEnd: '' });
   const filterRef = useRef(null);
   
-  const [fullChartData, setFullChartData] = useState([]);
-  const [chartData, setChartData] = useState([]);
-
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [exportModal, setExportModal] = useState({ show: false, type: '' });
@@ -72,15 +77,12 @@ export default function KurvaS({ selectedProject }) {
     id: Date.now(), minggu_ke: 1, bulan: 1, tanggal_mulai: '', tanggal_selesai: '', target_kumulatif: '' 
   }]);
 
-  // STATE UNTUK TOGGLE ADDENDUM TABEL
   const [showAddendum, setShowAddendum] = useState(false);
 
-  // STATE UNTUK TOGGLE GARIS KURVA
   const [showPlanCurve, setShowPlanCurve] = useState(true);
   const [showActualCurve, setShowActualCurve] = useState(true);
   const [showDeviationCurve, setShowDeviationCurve] = useState(true);
 
-  // HELPER MENDAPATKAN WARNA KATEGORI
   const getCategoryStyle = (kat) => {
     switch (kat) {
       case 'Infrastruktur Jalan & Jembatan': return 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600';
@@ -309,9 +311,32 @@ export default function KurvaS({ selectedProject }) {
     return `Skala ${filterMode} | ${rangeLabel}`;
   };
 
-  useEffect(() => {
-    if (!scheduleData) return;
+  // =========================================================================
+  // PERBAIKAN: HYBRID DATA CALCULATION DENGAN LOGIKA ANTI-DUPLIKAT
+  // =========================================================================
+  const fullChartData = useMemo(() => {
+    if (!scheduleData) return [];
 
+    // Jika Backend sudah sukses mengirim full_chart_data, langsung pakai
+    if (scheduleData.full_chart_data && scheduleData.full_chart_data.length > 0) {
+      return scheduleData.full_chart_data.map(item => ({
+        hariKe: item.hariKe ?? item.hari_ke,
+        label: item.label,
+        dateString: item.dateString ?? item.date_string,
+        dateSlash: item.dateSlash ?? item.date_slash,
+        displayDate: item.displayDate ?? item.display_date,
+        shortDate: item.shortDate ?? item.short_date,
+        mingguKe: item.mingguKe ?? item.minggu_ke,
+        targetKumulatifMingguan: item.targetKumulatifMingguan ?? item.target_kumulatif_mingguan,
+        rencanaKumulatif: item.rencanaKumulatif ?? item.rencana_kumulatif,
+        bobotRealisasi: item.bobotRealisasi ?? item.bobot_realisasi,
+        realisasiKumulatif: item.realisasiKumulatif ?? item.realisasi_kumulatif,
+        deviasiKumulatif: item.deviasiKumulatif ?? item.deviasi_kumulatif,
+        hasReportToday: item.hasReportToday ?? item.has_report_today
+      }));
+    }
+
+    // FALLBACK (Jika Cache Backend Kosong)
     const parseLocalDate = (dateStr) => {
       if (!dateStr) return new Date();
       const cleanStr = dateStr.split(' ')[0].split('T')[0];
@@ -322,10 +347,18 @@ export default function KurvaS({ selectedProject }) {
     const weekMap = {};
     const safeSchedules = Array.isArray(scheduleData.schedules) ? scheduleData.schedules : (scheduleData.schedules ? Object.values(scheduleData.schedules) : []);
     
+    // PERBAIKAN: Mencegah Duplikasi Target (Tidak lagi menggunakan +=)
     safeSchedules.forEach(s => {
       const w = parseInt(s.minggu_ke);
-      if (!weekMap[w]) weekMap[w] = { minggu_ke: w, bulan: s.bulan || null, tanggal_awal: s.tanggal_awal || null, tanggal_akhir: s.tanggal_akhir || null, target_kumulatif: 0 };
-      weekMap[w].target_kumulatif += getSafeFloat(s.target_kumulatif);
+      if (!weekMap[w]) {
+        weekMap[w] = { 
+          minggu_ke: w, 
+          bulan: s.bulan || null, 
+          tanggal_awal: s.tanggal_awal || null, 
+          tanggal_akhir: s.tanggal_akhir || null, 
+          target_kumulatif: getSafeFloat(s.target_kumulatif) 
+        };
+      }
       if (!weekMap[w].tanggal_awal && s.tanggal_awal) weekMap[w].tanggal_awal = s.tanggal_awal;
       if (!weekMap[w].tanggal_akhir && s.tanggal_akhir) weekMap[w].tanggal_akhir = s.tanggal_akhir;
     });
@@ -377,11 +410,12 @@ export default function KurvaS({ selectedProject }) {
       let matchedWeek = sortedWeeks.find(w => w.tanggal_awal && w.tanggal_akhir && yyyymmdd >= w.tanggal_awal && yyyymmdd <= w.tanggal_akhir);
       let currentWeekNum = null;
 
-      if (dailyRealisasiWeeks[yyyymmdd]) {
-        currentWeekNum = parseInt(dailyRealisasiWeeks[yyyymmdd]);
-        if (!matchedWeek && weekMap[currentWeekNum]) matchedWeek = weekMap[currentWeekNum];
-      } else if (matchedWeek) {
+      // PERBAIKAN: Prioritaskan Kalender Master Schedule
+      if (matchedWeek) {
         currentWeekNum = matchedWeek.minggu_ke;
+      } else if (dailyRealisasiWeeks[yyyymmdd]) {
+        currentWeekNum = parseInt(dailyRealisasiWeeks[yyyymmdd]);
+        if (weekMap[currentWeekNum]) matchedWeek = weekMap[currentWeekNum];
       } else {
         const diffFromStart = Math.floor((currDate - pStart) / (1000 * 3600 * 24));
         currentWeekNum = diffFromStart >= 0 ? Math.floor(diffFromStart / 7) + 1 : 0;
@@ -413,11 +447,12 @@ export default function KurvaS({ selectedProject }) {
         realisasiKumulatif: finalRealisasiKumulatif, deviasiKumulatif: finalDeviasi, hasReportToday
       });
     }
-    setFullChartData(tempChartData);
+    
+    return tempChartData;
   }, [scheduleData]);
 
-  useEffect(() => {
-    if (fullChartData.length === 0) return;
+  const chartData = useMemo(() => {
+    if (fullChartData.length === 0) return [];
     let filtered = fullChartData;
     if (startDateFilter) filtered = filtered.filter(d => d.dateString >= startDateFilter);
     if (endDateFilter) filtered = filtered.filter(d => d.dateString <= endDateFilter);
@@ -451,9 +486,9 @@ export default function KurvaS({ selectedProject }) {
       });
       aggregated = Object.values(weekMap);
     }
-    
-    setChartData(aggregated);
+    return aggregated;
   }, [fullChartData, startDateFilter, endDateFilter, filterMode]);
+  // =========================================================================
 
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
@@ -540,6 +575,15 @@ export default function KurvaS({ selectedProject }) {
   };
 
   const isScheduleEmpty = !scheduleData?.schedules || scheduleData.schedules.length === 0;
+
+  if (isRenderingUI) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[40vh] w-full bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl shadow-sm animate-fade-in">
+        <Loader2 className="w-10 h-10 text-amber-500 animate-spin mb-4" />
+        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Menyusun Matriks Tabel & Grafik...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full space-y-3.5 pb-2 relative animate-fade-in flex flex-col">
@@ -663,7 +707,7 @@ export default function KurvaS({ selectedProject }) {
             <button onClick={() => navigate(`/projects/${projectId}/peta-gis`, { state: project })} className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap">
               <Compass className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span className="hidden sm:inline">Peta GIS</span>
             </button>
-            <button onClick={() => navigate(`/projects/${projectId}/gallery`, { state: project })} className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0">
+            <button onClick={() => navigate(`/projects/${projectId}/gallery`, { state: project })} className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0">
               <ImageIcon className="w-3.5 h-3.5 text-amber-500 shrink-0" /> <span className="hidden sm:inline">Gallery</span>
             </button>
           </div>
