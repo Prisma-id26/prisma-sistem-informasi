@@ -238,12 +238,13 @@ export default function ScheduleWorkData({
         </div>
       )}
 
-      <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl shadow-sm flex flex-col relative z-0 backdrop-blur-sm transition-all animate-fade-in w-full max-h-[calc(100vh-250px)] overflow-hidden">
-        <div className="overflow-auto custom-scrollbar flex-1 w-full relative">
+      {/* DI SINI PERUBAHANNYA: Hapus max-h-[calc(...)] dan biarkan memanjang ke bawah */}
+      <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl shadow-sm flex flex-col relative z-0 backdrop-blur-sm transition-all animate-fade-in w-full overflow-hidden">
+        {/* Ubah menjadi overflow-x-auto (hanya bisa digeser horizontal) */}
+        <div className="overflow-x-auto custom-scrollbar w-full relative">
           <table className="w-full text-left border-collapse min-w-max text-xs">
-            <thead className="sticky top-0 z-40 shadow-sm">
-              <tr className="bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700/80 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                
+            <thead className="bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700/80 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              <tr>
                 {/* HEADER KOLOM BIASA (NON-STICKY) */}
                 <th className="p-2.5 w-[75px] text-center border-r border-slate-200 dark:border-slate-700/60">Kode</th>
                 <th className="p-2.5 w-[280px] border-r border-slate-200 dark:border-slate-700/60">Uraian Pekerjaan (Realisasi Aktual)</th>
