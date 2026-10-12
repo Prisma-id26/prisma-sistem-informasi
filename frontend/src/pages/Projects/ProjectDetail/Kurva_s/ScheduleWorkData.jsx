@@ -21,6 +21,12 @@ export default function ScheduleWorkData({
     return isNaN(parsed) ? 0 : parsed;
   };
 
+  // HELPER FORMAT TANGGAL UNTUK TOOLTIP
+  const formatIndoDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
   const safeLocalWeeks = Array.isArray(localWeeks) ? localWeeks : (localWeeks ? Object.values(localWeeks) : []);
   const weeksArray = safeLocalWeeks.map(w => parseInt(w.minggu_ke) || 0);
 
@@ -241,7 +247,7 @@ export default function ScheduleWorkData({
       {/* DI SINI PERUBAHANNYA: Hapus max-h-[calc(...)] dan biarkan memanjang ke bawah */}
       <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl shadow-sm flex flex-col relative z-0 backdrop-blur-sm transition-all animate-fade-in w-full overflow-hidden">
         {/* Ubah menjadi overflow-x-auto (hanya bisa digeser horizontal) */}
-        <div className="overflow-x-auto custom-scrollbar w-full relative">
+        <div className="overflow-x-auto custom-scrollbar w-full relative pb-4">
           <table className="w-full text-left border-collapse min-w-max text-xs">
             <thead className="bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700/80 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               <tr>
@@ -250,20 +256,40 @@ export default function ScheduleWorkData({
                 <th className="p-2.5 w-[280px] border-r border-slate-200 dark:border-slate-700/60">Uraian Pekerjaan (Realisasi Aktual)</th>
                 <th className="p-2.5 w-[65px] text-center border-r border-slate-200 dark:border-slate-700/60 text-blue-600 dark:text-blue-400 bg-blue-50/30 dark:bg-blue-900/10">Bobot</th>
 
-                {/* SCROLLABLE COLUMNS: MINGGU (M-1, M-2, dst) */}
-                {weeksArray.map(w => (
-                  <th key={w} className="p-2 w-[75px] text-center border-r border-slate-200 dark:border-slate-700/60 align-middle">
-                    <div className="flex flex-col items-center justify-center h-full gap-1">
-                      <span>M-{w}</span>
-                      {isEditMode && canCreateData && (
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => openWeekModal(w)} className="p-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-blue-500 dark:text-blue-400 rounded hover:bg-blue-50 dark:hover:bg-slate-700 shadow-sm transition-colors" title="Atur Tanggal"><CalendarDays className="w-3 h-3" /></button>
-                          <button onClick={() => handleRemoveWeek(w)} className="p-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-rose-500 dark:text-rose-400 rounded hover:bg-rose-50 dark:hover:bg-slate-700 shadow-sm transition-colors" title="Hapus Minggu Ini"><Trash2 className="w-3 h-3" /></button>
+                {/* SCROLLABLE COLUMNS DENGAN TOOLTIP TANGGAL */}
+                {weeksArray.map(w => {
+                  const currentWeekData = safeLocalWeeks.find(week => parseInt(week.minggu_ke) === w);
+                  const tglAwal = currentWeekData?.tanggal_awal ? formatIndoDate(currentWeekData.tanggal_awal) : '?';
+                  const tglAkhir = currentWeekData?.tanggal_akhir ? formatIndoDate(currentWeekData.tanggal_akhir) : '?';
+
+                  return (
+                    <th key={w} className="p-2 w-[75px] text-center border-r border-slate-200 dark:border-slate-700/60 align-middle">
+                      <div className="flex flex-col items-center justify-center h-full gap-1">
+                        
+                        {/* CONTAINER TOOLTIP RENTANG TANGGAL */}
+                        <div className="relative group cursor-help w-full flex justify-center">
+                          <span className="border-b border-dashed border-slate-400 dark:border-slate-500 hover:text-amber-500 transition-colors inline-block pb-0.5">
+                            M-{w}
+                          </span>
+                          
+                          {/* POP-UP KETERANGAN (Muncul Saat Hover) */}
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-3 py-2 bg-slate-800 dark:bg-slate-700 border border-slate-700 dark:border-slate-600 text-white text-[10px] font-medium rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[60] pointer-events-none flex flex-col items-center">
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-800 dark:border-t-slate-700"></div>
+                            <span className="text-amber-400 font-extrabold mb-1 tracking-wider uppercase">Rentang Minggu Ke-{w}</span>
+                            <span className="flex items-center gap-1.5"><CalendarDays className="w-3 h-3 text-slate-300"/> {tglAwal} - {tglAkhir}</span>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  </th>
-                ))}
+
+                        {isEditMode && canCreateData && (
+                          <div className="flex items-center gap-1 mt-1">
+                            <button onClick={() => openWeekModal(w)} className="p-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-blue-500 dark:text-blue-400 rounded hover:bg-blue-50 dark:hover:bg-slate-700 shadow-sm transition-colors" title="Atur Tanggal"><CalendarDays className="w-3 h-3" /></button>
+                            <button onClick={() => handleRemoveWeek(w)} className="p-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-rose-500 dark:text-rose-400 rounded hover:bg-rose-50 dark:hover:bg-slate-700 shadow-sm transition-colors" title="Hapus Minggu Ini"><Trash2 className="w-3 h-3" /></button>
+                          </div>
+                        )}
+                      </div>
+                    </th>
+                  );
+                })}
 
                 {isEditMode && canCreateData && (
                   <th className="p-2 w-[75px] text-center border-r border-slate-200 dark:border-slate-700/60 align-middle">
@@ -364,7 +390,7 @@ export default function ScheduleWorkData({
               {/* 4. BARIS DEVIASI */}
               <tr className="bg-amber-50 dark:bg-amber-500/5 border-t border-amber-200 dark:border-amber-500/20">
                 <td colSpan="3" className="p-2 text-right font-extrabold text-amber-700 dark:text-amber-400 uppercase text-[10px] border-r border-amber-200 dark:border-amber-500/20">
-                  Deviasi
+                  Deviasi (Aktual - Target)
                 </td>
                 {weeksArray.map(w => {
                   const dev = weeklyMetrics[w].deviation;

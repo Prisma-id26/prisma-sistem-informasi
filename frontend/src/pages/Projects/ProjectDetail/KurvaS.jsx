@@ -64,7 +64,12 @@ export default function KurvaS({ selectedProject }) {
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
   const [showFilterPopup, setShowFilterPopup] = useState(false);
+  
+  // STATE FILTER MODE
   const [filterMode, setFilterMode] = useState('Mingguan'); 
+  // STATE KHUSUS UNTUK POPUP FILTER SEBELUM DI-APPLY
+  const [tempFilterMode, setTempFilterMode] = useState('Mingguan');
+
   const [filterSelection, setFilterSelection] = useState({ bulanLabel: '', mingguNum: '', rentangStart: '', rentangEnd: '' });
   const filterRef = useRef(null);
   
@@ -146,6 +151,11 @@ export default function KurvaS({ selectedProject }) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Set default mode saat popup filter dibuka
+  useEffect(() => {
+    if (showFilterPopup) setTempFilterMode(filterMode);
+  }, [showFilterPopup, filterMode]);
 
   const getSafeFloat = (val) => {
     if (val === null || val === undefined) return 0;
@@ -272,52 +282,47 @@ export default function KurvaS({ selectedProject }) {
     }
   };
 
-  const applyFilter = (mode, data) => {
+  // FUNGSI APPLY FILTER BARU
+  const handleApplyFilter = () => {
+    if (tempFilterMode === 'Harian') {
+      if (!startDateFilter || !endDateFilter) {
+        return alert("Wajib memasukkan Mulai Tanggal dan Sampai Tanggal untuk Skala Harian agar grafik tidak memberatkan sistem.");
+      }
+    } else {
+      // Bersihkan tanggal jika masuk mode Mingguan/Bulanan
+      setStartDateFilter('');
+      setEndDateFilter('');
+    }
+    
+    setFilterMode(tempFilterMode);
+    setShowFilterPopup(false);
+  };
+
+  // FUNGSI RESET FILTER KE DEFAULT MINGGUAN
+  const applyFilter = (mode) => {
     if (mode === 'Semua') {
       setFilterMode('Mingguan'); 
+      setTempFilterMode('Mingguan');
       setStartDateFilter(''); 
       setEndDateFilter('');
-      setFilterSelection({ ...filterSelection, bulanLabel: '', mingguNum: '', rentangStart: '', rentangEnd: '' });
       setShowFilterPopup(false);
     } 
-    else if (mode === 'Bulanan') {
-      setFilterMode(mode);
-      setStartDateFilter(data.start); setEndDateFilter(data.end);
-      setFilterSelection({ ...filterSelection, bulanLabel: data.label }); setShowFilterPopup(false);
-    } 
-    else if (mode === 'Mingguan') {
-      setFilterMode(mode);
-      const weekNum = data;
-      setFilterSelection({ ...filterSelection, mingguNum: weekNum });
-      const targetSchedule = (scheduleData?.schedules || []).find(s => parseInt(s.minggu_ke) === parseInt(weekNum));
-      if (targetSchedule && targetSchedule.tanggal_awal && targetSchedule.tanggal_akhir) {
-        setStartDateFilter(targetSchedule.tanggal_awal); setEndDateFilter(targetSchedule.tanggal_akhir);
-      } else if (projectBounds.start) {
-        const startDate = new Date(projectBounds.start); startDate.setHours(0, 0, 0, 0);
-        const weekStart = new Date(startDate.getTime() + (weekNum - 1) * 7 * 24 * 3600 * 1000);
-        const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 3600 * 1000);
-        setStartDateFilter(weekStart.toISOString().split('T')[0]); setEndDateFilter(weekEnd.toISOString().split('T')[0]);
-      }
-      setShowFilterPopup(false);
-    }
-    else if (mode === 'Harian') {
-      setFilterMode(mode);
-      setShowFilterPopup(false);
-    }
   };
 
   const getActiveFilterLabel = () => {
-    let rangeLabel = (startDateFilter || endDateFilter) ? `${startDateFilter ? formatIndoDate(startDateFilter) : 'Awal'} - ${endDateFilter ? formatIndoDate(endDateFilter) : 'Akhir'}` : 'Seluruh Waktu';
-    return `Skala ${filterMode} | ${rangeLabel}`;
+    if (filterMode === 'Harian') {
+      let rangeLabel = (startDateFilter || endDateFilter) ? `${startDateFilter ? formatIndoDate(startDateFilter) : 'Awal'} - ${endDateFilter ? formatIndoDate(endDateFilter) : 'Akhir'}` : 'Memerlukan Rentang Waktu';
+      return `Skala Harian | ${rangeLabel}`;
+    }
+    return `Skala ${filterMode} | Seluruh Waktu`;
   };
 
   // =========================================================================
-  // PERBAIKAN: HYBRID DATA CALCULATION DENGAN LOGIKA ANTI-DUPLIKAT
+  // HYBRID DATA CALCULATION DENGAN LOGIKA ANTI-DUPLIKAT
   // =========================================================================
   const fullChartData = useMemo(() => {
     if (!scheduleData) return [];
 
-    // Jika Backend sudah sukses mengirim full_chart_data, langsung pakai
     if (scheduleData.full_chart_data && scheduleData.full_chart_data.length > 0) {
       return scheduleData.full_chart_data.map(item => ({
         hariKe: item.hariKe ?? item.hari_ke,
@@ -336,7 +341,6 @@ export default function KurvaS({ selectedProject }) {
       }));
     }
 
-    // FALLBACK (Jika Cache Backend Kosong)
     const parseLocalDate = (dateStr) => {
       if (!dateStr) return new Date();
       const cleanStr = dateStr.split(' ')[0].split('T')[0];
@@ -347,7 +351,6 @@ export default function KurvaS({ selectedProject }) {
     const weekMap = {};
     const safeSchedules = Array.isArray(scheduleData.schedules) ? scheduleData.schedules : (scheduleData.schedules ? Object.values(scheduleData.schedules) : []);
     
-    // PERBAIKAN: Mencegah Duplikasi Target (Tidak lagi menggunakan +=)
     safeSchedules.forEach(s => {
       const w = parseInt(s.minggu_ke);
       if (!weekMap[w]) {
@@ -410,7 +413,6 @@ export default function KurvaS({ selectedProject }) {
       let matchedWeek = sortedWeeks.find(w => w.tanggal_awal && w.tanggal_akhir && yyyymmdd >= w.tanggal_awal && yyyymmdd <= w.tanggal_akhir);
       let currentWeekNum = null;
 
-      // PERBAIKAN: Prioritaskan Kalender Master Schedule
       if (matchedWeek) {
         currentWeekNum = matchedWeek.minggu_ke;
       } else if (dailyRealisasiWeeks[yyyymmdd]) {
@@ -451,42 +453,68 @@ export default function KurvaS({ selectedProject }) {
     return tempChartData;
   }, [scheduleData]);
 
+  // =========================================================================
+  // PERBAIKAN: AGREGASI BULANAN & MINGGUAN (Menyatukan Titik Data agar Ringan)
+  // =========================================================================
   const chartData = useMemo(() => {
     if (fullChartData.length === 0) return [];
-    let filtered = fullChartData;
-    if (startDateFilter) filtered = filtered.filter(d => d.dateString >= startDateFilter);
-    if (endDateFilter) filtered = filtered.filter(d => d.dateString <= endDateFilter);
     
-    let aggregated = [];
-
+    // Jika Mode Harian (Memerlukan Filter Tanggal)
+    if (filterMode === 'Harian') {
+      if (!startDateFilter || !endDateFilter) return []; 
+      
+      const filtered = fullChartData.filter(d => d.dateString >= startDateFilter && d.dateString <= endDateFilter);
+      return filtered.map(d => ({ ...d, xAxisLabel: d.shortDate, tooltipLabel: d.displayDate }));
+    } 
+    
+    // Jika Mode Bulanan (Agregasi Data berdasarkan Bulan Tertinggi)
     if (filterMode === 'Bulanan') {
       const monthMap = {};
-      filtered.forEach(d => {
+      
+      fullChartData.forEach(d => {
         const dateObj = new Date(d.dateString);
         const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
         const shortMonth = dateObj.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' });
         const longMonth = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-        monthMap[monthKey] = { ...d, xAxisLabel: shortMonth, tooltipLabel: `Bulan: ${longMonth}` };
+        
+        // Simpan titik data tertinggi/terakhir di bulan tersebut
+        if (!monthMap[monthKey] || (d.targetKumulatifMingguan !== null && d.targetKumulatifMingguan >= (monthMap[monthKey].targetKumulatifMingguan || 0))) {
+           monthMap[monthKey] = { 
+             ...d, 
+             xAxisLabel: shortMonth, 
+             tooltipLabel: `Bulan: ${longMonth}`,
+             // Timpa label tooltip dengan target kumulatif tertinggi di bulan tersebut
+             rencanaKumulatif: d.targetKumulatifMingguan !== null ? d.targetKumulatifMingguan : monthMap[monthKey]?.rencanaKumulatif,
+             realisasiKumulatif: d.realisasiKumulatif !== null ? d.realisasiKumulatif : monthMap[monthKey]?.realisasiKumulatif,
+             deviasiKumulatif: d.deviasiKumulatif !== null ? d.deviasiKumulatif : monthMap[monthKey]?.deviasiKumulatif
+           };
+        }
       });
-      aggregated = Object.values(monthMap);
+      
+      return Object.values(monthMap);
     } 
-    else if (filterMode === 'Harian') {
-      if (!startDateFilter || !endDateFilter) {
-          aggregated = []; 
-      } else {
-          aggregated = filtered.map(d => ({ ...d, xAxisLabel: d.shortDate, tooltipLabel: d.displayDate }));
+    
+    // DEFAULT: Jika Mode Mingguan (Agregasi Data berdasarkan Minggu Tertinggi)
+    const weekMap = {};
+    fullChartData.forEach(d => {
+      const wKey = d.mingguKe || 0;
+      if (wKey === 0) return; 
+      
+      // Ambil titik terakhir di minggu tersebut
+      if (!weekMap[wKey] || (d.targetKumulatifMingguan !== null)) {
+         weekMap[wKey] = { 
+           ...d, 
+           xAxisLabel: `M-${wKey}`, 
+           tooltipLabel: `Minggu Ke-${wKey}`,
+           rencanaKumulatif: d.targetKumulatifMingguan !== null ? d.targetKumulatifMingguan : weekMap[wKey]?.rencanaKumulatif,
+           realisasiKumulatif: d.realisasiKumulatif !== null ? d.realisasiKumulatif : weekMap[wKey]?.realisasiKumulatif,
+           deviasiKumulatif: d.deviasiKumulatif !== null ? d.deviasiKumulatif : weekMap[wKey]?.deviasiKumulatif
+         };
       }
-    } 
-    else { 
-      const weekMap = {};
-      filtered.forEach(d => {
-        const wKey = d.mingguKe || 0;
-        if (wKey === 0) return; 
-        weekMap[wKey] = { ...d, xAxisLabel: `M-${wKey}`, tooltipLabel: `Minggu Ke-${wKey}` };
-      });
-      aggregated = Object.values(weekMap);
-    }
-    return aggregated;
+    });
+    
+    return Object.values(weekMap);
+
   }, [fullChartData, startDateFilter, endDateFilter, filterMode]);
   // =========================================================================
 
@@ -623,7 +651,7 @@ export default function KurvaS({ selectedProject }) {
                 <button 
                   disabled={isLoading || isScheduleEmpty} 
                   onClick={() => setShowFilterPopup(!showFilterPopup)} 
-                  className={`flex items-center justify-center gap-1.5 px-2 sm:px-2.5 h-7 rounded-lg text-[10px] sm:text-[11px] font-bold border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${showFilterPopup || filterMode !== 'Mingguan' || startDateFilter || endDateFilter ? 'bg-purple-50 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/30 text-purple-600 dark:text-purple-400' : 'bg-transparent border-transparent text-slate-600 dark:text-slate-300 hover:bg-purple-50 dark:hover:bg-purple-500/10 hover:text-purple-600 dark:hover:text-purple-400'}`}
+                  className={`flex items-center justify-center gap-1.5 px-2 sm:px-2.5 h-7 rounded-lg text-[10px] sm:text-[11px] font-bold border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${showFilterPopup || filterMode === 'Harian' ? 'bg-purple-50 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/30 text-purple-600 dark:text-purple-400' : 'bg-transparent border-transparent text-slate-600 dark:text-slate-300 hover:bg-purple-50 dark:hover:bg-purple-500/10 hover:text-purple-600 dark:hover:text-purple-400'}`}
                 >
                   <Filter className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400 shrink-0" /> 
                   <span>Filter</span>
@@ -633,19 +661,25 @@ export default function KurvaS({ selectedProject }) {
                     <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Skala Tampilan Sumbu X</h4>
                     <div className="flex bg-slate-100 dark:bg-slate-900/60 rounded-xl p-1 mb-4 shadow-inner border border-slate-200 dark:border-slate-700/50">
                       {['Harian', 'Mingguan', 'Bulanan'].map(mode => (
-                        <button key={mode} onClick={() => setFilterMode(mode)} className={`flex-1 text-[10px] py-1.5 font-bold rounded-lg transition-all ${filterMode === mode ? 'bg-white dark:bg-slate-700 shadow text-purple-600 dark:text-purple-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
+                        <button key={mode} onClick={() => setTempFilterMode(mode)} className={`flex-1 text-[10px] py-1.5 font-bold rounded-lg transition-all ${tempFilterMode === mode ? 'bg-white dark:bg-slate-700 shadow text-purple-600 dark:text-purple-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
                           {mode}
                         </button>
                       ))}
                     </div>
-                    <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Rentang Waktu (Opsional)</h4>
-                    <div className="flex flex-col gap-2.5">
-                      <div className="space-y-1"><label className="text-[10px] font-medium text-slate-500">Mulai Tanggal</label><input type="date" min={projectBounds.start} max={endDateFilter || projectBounds.end} value={startDateFilter} onChange={e => setStartDateFilter(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-inner [color-scheme:light_dark]" /></div>
-                      <div className="space-y-1"><label className="text-[10px] font-medium text-slate-500">Sampai Tanggal</label><input type="date" min={startDateFilter || projectBounds.start} max={projectBounds.end} value={endDateFilter} onChange={e => setEndDateFilter(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-inner [color-scheme:light_dark]" /></div>
-                      <div className="flex gap-2 mt-1">
-                        {(startDateFilter || endDateFilter) && <button onClick={() => { setStartDateFilter(''); setEndDateFilter(''); }} className="flex-1 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold rounded-xl text-xs shadow-sm transition-colors">Reset</button>}
-                        <button onClick={() => setShowFilterPopup(false)} className="flex-1 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow-sm transition-colors">Tutup</button>
+                    
+                    {/* HANYA TAMPILKAN INPUT TANGGAL JIKA MODE HARIAN */}
+                    {tempFilterMode === 'Harian' && (
+                      <div className="animate-fade-in mb-4">
+                        <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Rentang Waktu (Wajib)</h4>
+                        <div className="flex flex-col gap-2.5">
+                          <div className="space-y-1"><label className="text-[10px] font-medium text-slate-500">Mulai Tanggal <span className="text-rose-500">*</span></label><input type="date" min={projectBounds.start} max={endDateFilter || projectBounds.end} value={startDateFilter} onChange={e => setStartDateFilter(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-inner [color-scheme:light_dark]" /></div>
+                          <div className="space-y-1"><label className="text-[10px] font-medium text-slate-500">Sampai Tanggal <span className="text-rose-500">*</span></label><input type="date" min={startDateFilter || projectBounds.start} max={projectBounds.end} value={endDateFilter} onChange={e => setEndDateFilter(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-inner [color-scheme:light_dark]" /></div>
+                        </div>
                       </div>
+                    )}
+                    
+                    <div className="flex gap-2 mt-2">
+                      <button onClick={handleApplyFilter} className="flex-1 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow-sm transition-colors">Terapkan Filter</button>
                     </div>
                   </div>
                 )}
@@ -715,7 +749,7 @@ export default function KurvaS({ selectedProject }) {
         </div>
       </div>
 
-      {(filterMode !== 'Mingguan' || startDateFilter || endDateFilter) && !isEditMode && !isScheduleEmpty && (
+      {(filterMode !== 'Mingguan') && !isEditMode && !isScheduleEmpty && (
         <div className="flex flex-wrap gap-2 animate-fade-in -mt-2">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-bold rounded-lg border border-purple-200 dark:border-purple-500/20 shadow-sm">
             Tampilan Grafik: {getActiveFilterLabel()}
