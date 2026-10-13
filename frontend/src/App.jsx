@@ -13,15 +13,14 @@ import CompanyProfile from './pages/CompanyProfile/CompanyProfile';
 // Import Modul Dashboard & Proyek
 import DashboardUtama from './pages/Dashboard/DashboardUtama';
 import ProjectList from './pages/Projects/ProjectList';
-import AddProject from './pages/Projects/AddProject';
+import AddProject from './pages/Projects/ProjectAdd'; // <-- Sesuai gambar, namanya ProjectAdd.jsx
 
-// Import Detail Proyek
-import ProjectData from './pages/Projects/ProjectDetail/ProjectData';
-import ProjectRAB from './pages/Projects/ProjectDetail/ProjectRAB';
-import KurvaS from './pages/Projects/ProjectDetail/KurvaS';
-import PetaGIS from './pages/Projects/ProjectDetail/PetaGIS';
-// IMPORT HALAMAN GALERI BARU
-import GaleriProyek from './pages/Projects/ProjectDetail/GaleriProyek';
+// Import Detail Proyek (Dari Folder ProjectAssets yang Baru)
+import ProjectData from './pages/Projects/ProjectDataComponents/ProjectData';
+import ProjectRAB from './pages/Projects/ProjectAssets/Rab/ProjectRAB';
+import KurvaS from './pages/Projects/ProjectAssets/Kurva/KurvaS';
+import PetaGIS from './pages/Projects/ProjectAssets/Gis/PetaGIS';
+import GaleriProyek from './pages/Projects/ProjectAssets/Galeri/GaleriProyek';
 
 // Import Modul Laporan
 import LaporanList from './pages/Laporan/LaporanList';

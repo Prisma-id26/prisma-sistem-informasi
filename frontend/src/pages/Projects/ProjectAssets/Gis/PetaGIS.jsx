@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link, useLocation } from 'react-router-dom';
-import api from '../../../api'; 
+import api from '../../../../api'; 
 import { 
   Compass, Info, FileSpreadsheet, TrendingUp, 
   Navigation, Globe, Map as MapIcon, Image as ImageIcon,

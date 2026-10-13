@@ -12,7 +12,6 @@ export default function ScheduleWorkData({
   const [inlineEditData, setInlineEditData] = useState({ volume: '', persentase: '' });
   const [isSavingInline, setIsSavingInline] = useState(false);
   
-  // STATE LOKAL UNTUK INPUT MINGGUAN YANG MULUS
   const [localWeeklyInputs, setLocalWeeklyInputs] = useState({});
 
   const getSafeFloat = (val) => {
@@ -21,7 +20,14 @@ export default function ScheduleWorkData({
     return isNaN(parsed) ? 0 : parsed;
   };
 
-  // HELPER FORMAT TANGGAL UNTUK TOOLTIP
+  // HELPER UNTUK DESIMAL FLEKSIBEL (Max 4 di belakang koma)
+  const formatDetailPercent = (val) => {
+    const num = getSafeFloat(val);
+    if (num === 0) return '0.00';
+    // Menghindari 0.0800, tetapi menjaga 0.0777
+    return Number.isInteger(num) ? num.toFixed(2) : parseFloat(num.toFixed(4)).toString(); 
+  };
+
   const formatIndoDate = (dateString) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -40,9 +46,6 @@ export default function ScheduleWorkData({
     return { ...cat, items: filteredItems };
   }).filter(cat => cat.items.length > 0);
 
-  // =========================================================================
-  // LOGIKA PENGHILANGAN / PENAMPILAN ADDENDUM
-  // =========================================================================
   const ADDENDUM_NAME = 'PEKERJAAN TAMBAHAN (ADDENDUM)';
   const hasAddendum = safeRabData.some(cat => cat.nama_kategori === ADDENDUM_NAME);
 
@@ -83,9 +86,6 @@ export default function ScheduleWorkData({
 
   const extraCols = isEditMode && canCreateData ? 4 : 3;
 
-  // =========================================================================
-  // MESIN KALKULASI FOOTER: 4 Baris Berurutan Sesuai Format Standar
-  // =========================================================================
   const weeklyMetrics = useMemo(() => {
     let runningActual = 0;
     const metrics = {};
@@ -100,17 +100,11 @@ export default function ScheduleWorkData({
     weeksArray.forEach((w, index) => {
         const weekActual = getSafeFloat(scheduleData?.weekly_actual?.[w]);
         
-        // 1. Realisasi Kumulatif
         runningActual += weekActual;
-        
-        // 2. Jumlah Rencana Kumulatif (Target Input di Backend)
         const currentCumPlan = getSafeFloat(safeLocalWeeks.find(week => parseInt(week.minggu_ke) === w)?.target_kumulatif);
-        
-        // 3. Rencana Mingguan (Delta)
         const prevCumPlan = index === 0 ? 0 : getSafeFloat(safeLocalWeeks.find(week => parseInt(week.minggu_ke) === weeksArray[index-1])?.target_kumulatif);
         const rencanaMingguan = currentCumPlan - prevCumPlan;
 
-        // 4. Deviasi
         let deviation = null;
         if (maxReportedWeek > 0 && w <= maxReportedWeek) {
             deviation = runningActual - currentCumPlan;
@@ -128,20 +122,16 @@ export default function ScheduleWorkData({
     return metrics;
   }, [scheduleData?.weekly_actual, weeksArray, safeLocalWeeks]);
 
-  // SINKRONISASI INPUT MINGGUAN KETIKA MASUK MODE EDIT
   useEffect(() => {
     if (isEditMode) {
       const initialInputs = {};
       weeksArray.forEach((w) => {
-         initialInputs[w] = weeklyMetrics[w].planWeekly > 0 ? weeklyMetrics[w].planWeekly.toFixed(2) : '';
+         initialInputs[w] = weeklyMetrics[w].planWeekly > 0 ? formatDetailPercent(weeklyMetrics[w].planWeekly) : '';
       });
       setLocalWeeklyInputs(initialInputs);
     }
   }, [isEditMode, weeksArray.length]);
 
-  // =========================================================================
-  // OPTIMASI: Matriks Body dibungkus useMemo (TANPA STICKY)
-  // =========================================================================
   const renderedTableBody = useMemo(() => {
     if (displayRabData.length === 0) {
       return (
@@ -185,10 +175,9 @@ export default function ScheduleWorkData({
                   <div className="line-clamp-2" title={item.uraian_pekerjaan}>{item.uraian_pekerjaan}</div>
                 </td>
                 <td className="p-2 text-center font-mono text-[10px] font-extrabold text-blue-600 dark:text-blue-400 border-r border-slate-200 dark:border-slate-700/60 bg-blue-50/30 dark:bg-blue-900/10">
-                  {`${bobotStandar.toFixed(2)}%`}
+                  {`${formatDetailPercent(bobotStandar)}%`}
                 </td>
 
-                {/* KOLOM MINGGU */}
                 {weeksArray.map(w => {
                   const totalActual = getSafeFloat(scheduleData?.matrix_actual?.[item.id]?.[w]);
                   const isExist = scheduleData?.matrix_actual?.[item.id]?.[w] !== undefined;
@@ -201,7 +190,8 @@ export default function ScheduleWorkData({
                           title="Klik untuk lihat rincian laporan"
                           className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors cursor-pointer shadow-sm active:scale-95 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-800/40 border-emerald-200 dark:border-emerald-800/30"
                         >
-                          {totalActual.toFixed(2)}
+                          {/* Menggunakan helper formatDetailPercent */}
+                          {formatDetailPercent(totalActual)}
                         </button>
                       ) : (
                         <span className="text-slate-300 dark:text-slate-600 text-[10px]">-</span>
@@ -213,7 +203,7 @@ export default function ScheduleWorkData({
                 {isEditMode && canCreateData && <td className="p-1.5 border-r border-slate-200 dark:border-slate-700/60 bg-emerald-50/5 dark:bg-emerald-900/5"></td>}
 
                 <td className="p-2 text-right font-mono text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/10">
-                  {itemCumulative > 0 ? `${itemCumulative.toFixed(2)}%` : '0.00%'}
+                  {itemCumulative > 0 ? `${formatDetailPercent(itemCumulative)}%` : '0.00%'}
                 </td>
               </tr>
             );
@@ -227,7 +217,6 @@ export default function ScheduleWorkData({
     <>
       <style>{`.custom-scrollbar::-webkit-scrollbar { height: 5px; width: 5px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; } .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #475569; } .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #f59e0b; cursor: pointer;}`}</style>
       
-      {/* TOMBOL TOGGLE ADDENDUM UNTUK ADMIN */}
       {userRole === 'Administrator' && hasAddendum && (
         <div className="flex justify-end mb-2 animate-fade-in">
           <button 
@@ -244,18 +233,15 @@ export default function ScheduleWorkData({
         </div>
       )}
 
-      {/* TAMPILAN TABEL - OVERFLOW BEBAS KE BAWAH */}
       <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl shadow-sm flex flex-col relative z-0 backdrop-blur-sm transition-all animate-fade-in w-full overflow-hidden">
         <div className="overflow-x-auto custom-scrollbar w-full relative pb-4">
           <table className="w-full text-left border-collapse min-w-max text-xs">
             <thead className="bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700/80 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
               <tr>
-                {/* HEADER KOLOM BIASA (NON-STICKY) */}
                 <th className="p-2.5 w-[75px] text-center border-r border-slate-200 dark:border-slate-700/60">Kode</th>
                 <th className="p-2.5 w-[280px] border-r border-slate-200 dark:border-slate-700/60">Uraian Pekerjaan (Realisasi Aktual)</th>
                 <th className="p-2.5 w-[65px] text-center border-r border-slate-200 dark:border-slate-700/60 text-blue-600 dark:text-blue-400 bg-blue-50/30 dark:bg-blue-900/10">Bobot</th>
 
-                {/* SCROLLABLE COLUMNS DENGAN TOOLTIP TANGGAL (MEMBUKA KE BAWAH AGAR TIDAK TERPOTONG) */}
                 {weeksArray.map(w => {
                   const currentWeekData = safeLocalWeeks.find(week => parseInt(week.minggu_ke) === w);
                   const tglAwal = currentWeekData?.tanggal_awal ? formatIndoDate(currentWeekData.tanggal_awal) : '?';
@@ -264,14 +250,10 @@ export default function ScheduleWorkData({
                   return (
                     <th key={w} className="p-2 w-[75px] text-center border-r border-slate-200 dark:border-slate-700/60 align-middle">
                       <div className="flex flex-col items-center justify-center h-full gap-1">
-                        
-                        {/* CONTAINER TOOLTIP RENTANG TANGGAL */}
                         <div className="relative group cursor-pointer w-full flex justify-center">
                           <span className="border-b border-dashed border-slate-400 dark:border-slate-500 hover:text-amber-500 transition-colors inline-block pb-0.5">
                             M-{w}
                           </span>
-                          
-                          {/* POP-UP KETERANGAN (MUNCUL KE BAWAH SAAT DI-HOVER) */}
                           <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-max px-3 py-2 bg-slate-800 dark:bg-slate-700 border border-slate-700 dark:border-slate-600 text-white text-[10px] font-medium rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[60] pointer-events-none flex flex-col items-center">
                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-b-slate-800 dark:border-b-slate-700"></div>
                             <span className="text-amber-400 font-extrabold mb-1 tracking-wider uppercase">Rentang Minggu Ke-{w}</span>
@@ -307,7 +289,6 @@ export default function ScheduleWorkData({
             </tbody>
             
             <tfoot className="shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
-
               {/* 1. BARIS RENCANA MINGGUAN (INPUT MODE) */}
               <tr className="bg-blue-50 dark:bg-blue-500/5 border-t-2 border-blue-200 dark:border-blue-500/20">
                 <td colSpan="3" className="p-2 text-right font-extrabold text-blue-600 dark:text-blue-400 uppercase text-[10px] border-r border-blue-200 dark:border-blue-500/20">
@@ -315,7 +296,7 @@ export default function ScheduleWorkData({
                 </td>
                 {weeksArray.map((w, index) => {
                   const derivedWeekly = weeklyMetrics[w].planWeekly;
-                  const displayValue = isEditMode ? (localWeeklyInputs[w] ?? '') : (derivedWeekly > 0 ? derivedWeekly.toFixed(2) : '-');
+                  const displayValue = isEditMode ? (localWeeklyInputs[w] ?? '') : (derivedWeekly > 0 ? formatDetailPercent(derivedWeekly) : '-');
                   
                   return (
                     <td key={w} className="p-1.5 text-center border-r border-blue-200 dark:border-blue-500/20 font-mono text-[10px] font-bold text-blue-600 dark:text-blue-400">
@@ -334,7 +315,6 @@ export default function ScheduleWorkData({
                                 const oldWeeklyNum = currentCum - prevCum;
                                 const delta = valNum - oldWeeklyNum;
 
-                                // CASCADE: Update nilai kumulatif minggu ini dan semua minggu setelahnya ke parent
                                 for (let i = index; i < weeksArray.length; i++) {
                                     const targetW = weeksArray[i];
                                     const oldCumTarget = getSafeFloat(safeLocalWeeks.find(week => parseInt(week.minggu_ke) === targetW)?.target_kumulatif);
@@ -355,7 +335,7 @@ export default function ScheduleWorkData({
                 <td className="p-2 text-right font-mono text-[10px] font-extrabold text-blue-600 dark:text-blue-400">-</td>
               </tr>
 
-              {/* 2. BARIS JUMLAH RENCANA KUMULATIF (TEXT ONLY - AUTO SUM) */}
+              {/* 2. BARIS JUMLAH RENCANA KUMULATIF */}
               <tr className="bg-sky-50 dark:bg-sky-500/5 border-t border-sky-200 dark:border-sky-500/20">
                 <td colSpan="3" className="p-2 text-right font-extrabold text-sky-700 dark:text-sky-400 uppercase text-[10px] border-r border-sky-200 dark:border-sky-500/20">
                   Jumlah Rencana Kumulatif
@@ -363,7 +343,7 @@ export default function ScheduleWorkData({
                 {weeksArray.map(w => (
                   <td key={w} className="p-1.5 text-center border-r border-sky-200 dark:border-sky-500/20">
                     <span className="font-mono text-[10px] font-extrabold text-sky-700 dark:text-sky-400">
-                      {weeklyMetrics[w].planCum > 0 ? weeklyMetrics[w].planCum.toFixed(2) : '-'}
+                      {weeklyMetrics[w].planCum > 0 ? formatDetailPercent(weeklyMetrics[w].planCum) : '-'}
                     </span>
                   </td>
                 ))}
@@ -378,8 +358,7 @@ export default function ScheduleWorkData({
                 </td>
                 {weeksArray.map(w => (
                   <td key={w} className="p-2 text-center border-r border-emerald-200 dark:border-emerald-500/20 font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                    {/* Tampilkan data aktual secara kumulatif jika ada laporan */}
-                    {weeklyMetrics[w].hasReport ? weeklyMetrics[w].actualCum.toFixed(2) : '-'}
+                    {weeklyMetrics[w].hasReport ? formatDetailPercent(weeklyMetrics[w].actualCum) : '-'}
                   </td>
                 ))}
                 {isEditMode && canCreateData && <td className="border-r border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/10 dark:bg-emerald-900/10"></td>}
@@ -397,7 +376,8 @@ export default function ScheduleWorkData({
                   let devStr = "-";
                   
                   if (dev !== null) {
-                      devStr = dev > 0 ? `+${dev.toFixed(2)}` : dev.toFixed(2);
+                      const devFormatted = formatDetailPercent(dev);
+                      devStr = dev > 0 ? `+${devFormatted}` : devFormatted;
                       if (dev > 0) devClass = "text-emerald-600 dark:text-emerald-400";
                       else if (dev < 0) devClass = "text-rose-600 dark:text-rose-400";
                       else devClass = "text-amber-600 dark:text-amber-400";
@@ -451,7 +431,6 @@ export default function ScheduleWorkData({
                          <th className="p-3 text-center border-r border-slate-200 dark:border-slate-700/60 w-24">Volume</th>
                          <th className="p-3 text-center border-r border-slate-200 dark:border-slate-700/60 w-24">Aktual (%)</th>
                          <th className="p-3 text-center border-r border-slate-200 dark:border-slate-700/60 w-24">Status</th>
-                         {/* TOMBOL AKSI HANYA MUNCUL DI MODE EDIT */}
                          {isEditMode && canCreateData && <th className="p-3 text-center w-28">Aksi</th>}
                        </tr>
                      </thead>
@@ -469,12 +448,11 @@ export default function ScheduleWorkData({
                                {isEditing ? <input type="number" step="any" className="w-full text-center border border-blue-400 rounded p-1 text-xs dark:bg-slate-800 focus:outline-none" value={inlineEditData.volume} onChange={(e)=>setInlineEditData({...inlineEditData, volume: e.target.value})} /> : <span className="font-mono font-bold">{getSafeFloat(r.volume_laporan)} {detailModal.item?.satuan || ''}</span>}
                              </td>
                              <td className="p-3 text-center border-r border-slate-200 dark:border-slate-700/60">
-                               {isEditing ? <input type="number" step="any" className="w-full text-center border border-emerald-400 rounded p-1 text-xs dark:bg-slate-800 focus:outline-none text-emerald-600 font-bold" value={inlineEditData.persentase} onChange={(e)=>setInlineEditData({...inlineEditData, persentase: e.target.value})} /> : <span className="font-mono font-extrabold text-emerald-600 dark:text-emerald-400">{getSafeFloat(r.bobot_realisasi).toFixed(2)}%</span>}
+                               {isEditing ? <input type="number" step="any" className="w-full text-center border border-emerald-400 rounded p-1 text-xs dark:bg-slate-800 focus:outline-none text-emerald-600 font-bold" value={inlineEditData.persentase} onChange={(e)=>setInlineEditData({...inlineEditData, persentase: e.target.value})} /> : <span className="font-mono font-extrabold text-emerald-600 dark:text-emerald-400">{formatDetailPercent(r.bobot_realisasi)}%</span>}
                              </td>
                              <td className="p-3 text-center border-r border-slate-200 dark:border-slate-700/60">
                                {r.status_laporan === 'approved' ? <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/40 px-2 py-1 rounded border border-emerald-200 dark:border-emerald-800/30 shadow-sm"><CheckCircle2 className="w-3 h-3"/> Disetujui</span> : <span className="text-slate-400 text-[10px]">Pending</span>}
                              </td>
-                             {/* TOMBOL AKSI HANYA MUNCUL DI MODE EDIT */}
                              {isEditMode && canCreateData && (
                                <td className="p-2 text-center">
                                  {isEditing ? (

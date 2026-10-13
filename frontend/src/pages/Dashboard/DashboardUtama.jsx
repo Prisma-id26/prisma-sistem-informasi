@@ -120,12 +120,6 @@ export default function DashboardUtama() {
         {canCreateData && (
           <div className="flex gap-2 w-full sm:w-auto">
             <button 
-              onClick={() => navigate('/schedules/input')} 
-              className="flex-1 sm:flex-none px-4 py-2.5 md:py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition-all border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-center gap-2 active:scale-95"
-            >
-              <CalendarDays className="w-4 h-4 text-blue-500" /> <span className="hidden sm:inline">Buat</span> Schedule
-            </button>
-            <button 
               onClick={() => navigate('/laporan/input')} 
               className="flex-1 sm:flex-none px-4 py-2.5 md:py-2 bg-amber-500 hover:bg-amber-600 text-white dark:text-slate-950 text-xs font-bold rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
             >
