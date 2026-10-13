@@ -19,7 +19,7 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Super Administrator',
                 'password' => Hash::make('123456'),
-                // 'role' => 'admin', // (Buka komentar ini JIKA di tabel users Anda ada kolom 'role')
+                'role' => 'Administrator'
             ]
         );
     }
