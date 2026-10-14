@@ -25,53 +25,93 @@ class ProjectController extends Controller
 
         $projectIds = $projects->pluck('id')->toArray();
 
-        // 1. Ambil Target Plan Tertinggi per Proyek
-        $plans = DB::table('project_schedules')
+        // 1. Ambil seluruh jadwal mingguan per proyek (diurutkan berdasarkan minggu_ke)
+        $allSchedules = DB::table('project_schedules')
             ->whereIn('project_id', $projectIds)
-            ->select('project_id', DB::raw('MAX(target_kumulatif) as max_plan'))
-            ->groupBy('project_id')
-            ->pluck('max_plan', 'project_id');
+            ->orderBy('minggu_ke', 'asc')
+            ->get()
+            ->groupBy('project_id');
 
-        // 2. Ambil Grand Total RAB per Proyek
-        $rabs = DB::table('rab_items')
-            ->join('rab_categories', 'rab_items.rab_category_id', '=', 'rab_categories.id')
-            ->whereIn('rab_categories.project_id', $projectIds)
-            ->where('rab_items.is_subheader', false)
-            ->select('rab_categories.project_id', DB::raw('SUM(rab_items.total_harga) as total_rab'))
-            ->groupBy('rab_categories.project_id')
-            ->pluck('total_rab', 'project_id');
-
-        // 3. Ambil Total Realisasi (Uang) per Proyek
-        $actuals = DB::table('daily_report_activities')
+        // 2. Ambil realisasi mingguan per proyek dari laporan harian yang disetujui (approved)
+        $weeklyActualsRows = DB::table('daily_report_activities')
             ->join('daily_reports', 'daily_report_activities.daily_report_id', '=', 'daily_reports.id')
-            ->join('rab_items', 'daily_report_activities.rab_item_id', '=', 'rab_items.id')
             ->whereIn('daily_reports.project_id', $projectIds)
             ->where('daily_reports.status', 'approved')
             ->select(
                 'daily_reports.project_id',
-                DB::raw('SUM(COALESCE( (daily_report_activities.persentase / 100) * rab_items.total_harga, daily_report_activities.volume * rab_items.harga_satuan )) as total_realisasi')
+                'daily_reports.minggu_ke',
+                DB::raw('SUM(daily_report_activities.persentase) as total_persen')
             )
-            ->groupBy('daily_reports.project_id')
-            ->pluck('total_realisasi', 'project_id');
+            ->groupBy('daily_reports.project_id', 'daily_reports.minggu_ke')
+            ->get()
+            ->groupBy('project_id');
 
-        // 4. Suntikkan kalkulasi ke tiap proyek di RAM
-        return $projects->map(function ($project) use ($plans, $rabs, $actuals) {
-            $plan = $plans[$project->id] ?? 0;
-            $totalRab = $rabs[$project->id] ?? 0;
-            $totalReal = $actuals[$project->id] ?? 0;
+        // 3. Hitung Kolom Kumulatif (Sum Plan, Sum Realisasi, Sum Deviasi) persis seperti ScheduleWorkData.jsx
+        return $projects->map(function ($project) use ($allSchedules, $weeklyActualsRows) {
+            $schedules = $allSchedules[$project->id] ?? collect([]);
+            $actualRows = $weeklyActualsRows[$project->id] ?? collect([]);
 
-            $actual = $totalRab > 0 ? ($totalReal / $totalRab) * 100 : 0;
-            $deviasi = $actual - $plan;
+            // Peta mingguan: minggu_ke => total_persen
+            $weeklyActualMap = [];
+            foreach ($actualRows as $row) {
+                $w = (int) $row->minggu_ke;
+                $weeklyActualMap[$w] = round((float) $row->total_persen, 4);
+            }
 
-            $project->progress_plan = round((float) $plan, 2);
-            $project->progress_actual = round((float) $actual, 2);
-            $project->deviasi = round((float) $deviasi, 2);
+            // Dedup jadwal per minggu_ke sebagaimana di frontend
+            $uniqueWeeks = [];
+            foreach ($schedules as $s) {
+                $wNum = (int) $s->minggu_ke;
+                if (!isset($uniqueWeeks[$wNum])) {
+                    $uniqueWeeks[$wNum] = (float) $s->target_kumulatif;
+                }
+            }
+            ksort($uniqueWeeks);
+
+            $sumPlan = 0;
+            $sumRealisasi = 0;
+            $sumDeviasi = 0;
+            $prevCumPlan = 0;
+            $hasAnyRealisasi = false;
+
+            foreach ($uniqueWeeks as $wNum => $currentCumPlan) {
+                $planWeekly = round($currentCumPlan - $prevCumPlan, 4);
+                $prevCumPlan = $currentCumPlan;
+                $sumPlan = round($sumPlan + $planWeekly, 4);
+
+                if (isset($weeklyActualMap[$wNum])) {
+                    $hasAnyRealisasi = true;
+                    $actWeekly = $weeklyActualMap[$wNum];
+                    $devWeekly = round($actWeekly - $planWeekly, 4);
+
+                    $sumRealisasi = round($sumRealisasi + $actWeekly, 4);
+                    $sumDeviasi = round($sumDeviasi + $devWeekly, 4);
+                }
+            }
+
+            // Jika ada realisasi pada minggu di luar jadwal yang terdaftar, tetap tambahkan ke sumRealisasi
+            foreach ($weeklyActualMap as $wNum => $actWeekly) {
+                if (!isset($uniqueWeeks[$wNum])) {
+                    $hasAnyRealisasi = true;
+                    $sumRealisasi = round($sumRealisasi + $actWeekly, 4);
+                    $sumDeviasi = round($sumDeviasi + $actWeekly, 4);
+                }
+            }
+
+            $project->progress_plan = round($sumPlan, 4);
+            $project->progress_actual = round($sumRealisasi, 4);
+            $project->deviasi = $hasAnyRealisasi ? round($sumDeviasi, 4) : 0;
 
             if ($project->status !== 'Selesai') {
-                if ($plan == 0 && $actual == 0) $project->status = 'Belum Mulai';
-                else if ($deviasi < -5) $project->status = 'Kritis';
-                else if ($deviasi < 0) $project->status = 'Terlambat';
-                else $project->status = 'On Track';
+                if ($sumPlan == 0 && $sumRealisasi == 0) {
+                    $project->status = 'Belum Mulai';
+                } else if ($project->deviasi < -5) {
+                    $project->status = 'Kritis';
+                } else if ($project->deviasi < 0) {
+                    $project->status = 'Terlambat';
+                } else {
+                    $project->status = 'On Track';
+                }
             }
 
             return $project;
@@ -80,39 +120,31 @@ class ProjectController extends Controller
 
     public function index()
     {
-        // Cache daftar seluruh proyek selama 24 jam (instant response)
-        $optimizedProjects = Cache::remember('all_projects_list_cache', ProjectCacheService::TTL, function () {
-            $projects = Project::orderBy('created_at', 'desc')->get();
-            return $this->injectProgressToCollection($projects);
-        });
+        $projects = Project::orderBy('created_at', 'desc')->get();
+        $optimizedProjects = $this->injectProgressToCollection($projects);
 
         return response()->json($optimizedProjects);
     }
 
     public function show($id)
     {
-        // Cache detail proyek spesifik
-        $optimizedProject = ProjectCacheService::rememberProjectDetail($id, function () use ($id) {
-            $project = Project::with(['personnels', 'documents', 'gisDocuments'])->findOrFail($id);
-            return $this->injectProgressToCollection(collect([$project]))->first();
-        });
+        $project = Project::with(['personnels', 'documents', 'gisDocuments'])->findOrFail($id);
+        $optimizedProject = $this->injectProgressToCollection(collect([$project]))->first();
 
         return response()->json($optimizedProject);
     }
 
     public function getActiveForReport()
     {
-        $cachedActive = Cache::remember('active_projects_for_report', ProjectCacheService::TTL, function () {
-            $projects = Project::whereNotIn('status', ['Selesai', 'Selesai 100%', 'Batal'])->get();
+        $projects = Project::whereNotIn('status', ['Selesai', 'Selesai 100%', 'Batal'])->get();
 
-            $validProjects = $projects->filter(function ($project) {
-                return DB::table('project_schedules')->where('project_id', $project->id)->exists();
-            })->values();
+        $validProjects = $projects->filter(function ($project) {
+            return DB::table('project_schedules')->where('project_id', $project->id)->exists();
+        })->values();
 
-            return $this->injectProgressToCollection($validProjects);
-        });
+        $optimizedActive = $this->injectProgressToCollection($validProjects);
 
-        return response()->json(['status' => 'success', 'data' => $cachedActive]);
+        return response()->json(['status' => 'success', 'data' => $optimizedActive]);
     }
 
     private function clearGlobalProjectCache($projectId = null)

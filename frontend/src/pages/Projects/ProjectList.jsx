@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api';
 import { 
   Search, Plus, Edit3, Trash2, Filter, X, 
-  MapPin, Calendar, HardHat, CalendarDays,
+  MapPin, Calendar, HardHat, CalendarDays, Image as ImageIcon,
   Loader2, AlertTriangle, Info, FileBox, CheckCircle2,
   UploadCloud, FileSpreadsheet, Sparkles, ChevronLeft, ChevronRight
 } from 'lucide-react';
@@ -30,7 +30,7 @@ export default function ProjectList() {
   const [projects, setProjects] = useState(() => {
     if (cachedProjects && cachedProjects.length > 0) return cachedProjects;
     try {
-      const saved = sessionStorage.getItem('cached_projects_list');
+      const saved = sessionStorage.getItem('cached_projects_list_v2');
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
@@ -38,7 +38,7 @@ export default function ProjectList() {
   const [isLoading, setIsLoading] = useState(() => {
     if (cachedProjects && cachedProjects.length > 0) return false;
     try {
-      const saved = sessionStorage.getItem('cached_projects_list');
+      const saved = sessionStorage.getItem('cached_projects_list_v2');
       return !(saved && JSON.parse(saved).length > 0);
     } catch { return true; }
   });
@@ -49,7 +49,6 @@ export default function ProjectList() {
     document.title = "Prisma Group - Daftar Proyek";
   }, []);
   
-  // State daftar ID proyek yang sudah pernah dibuka oleh akun yang sedang login
   const [viewedProjects, setViewedProjects] = useState(() => {
     try {
       const key = `viewed_projects_${getCurrentUserKey()}`;
@@ -78,9 +77,7 @@ export default function ProjectList() {
   // HAK AKSES
   const [userRole, setUserRole] = useState('Tamu');
 
-  // ==========================================
   // STATE PAGINASI
-  // ==========================================
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -98,7 +95,13 @@ export default function ProjectList() {
   const canViewFinance = ['Administrator', 'Direktur', 'Team Leader', 'Owner / PPK'].includes(userRole);
   const isGuest = userRole === 'Tamu';
 
-  // Deteksi status "NEW" (baru dibuat <= 3 hari & belum pernah diklik buka data oleh akun ini)
+  // Helper format persentase seragam 4 angka di belakang koma (0.0000)
+  const formatDetailPercent = (val) => {
+    const num = parseFloat(val);
+    if (isNaN(num)) return '0.0000';
+    return num.toFixed(4);
+  };
+
   const isProjectNew = (proj) => {
     if (!proj.created_at) return false;
     const diffDays = (new Date() - new Date(proj.created_at)) / (1000 * 60 * 60 * 24);
@@ -107,7 +110,6 @@ export default function ProjectList() {
     return isRecent && !isAlreadyViewed;
   };
 
-  // Tandai proyek sebagai sudah dibaca untuk akun login saat ini, lalu navigasi
   const handleOpenProjectData = (proj) => {
     const userKey = getCurrentUserKey();
     const updated = Array.from(new Set([...viewedProjects, proj.id]));
@@ -129,7 +131,7 @@ export default function ProjectList() {
       
       setProjects(safeData);
       cachedProjects = safeData;
-      try { sessionStorage.setItem('cached_projects_list', JSON.stringify(safeData)); } catch {}
+      try { sessionStorage.setItem('cached_projects_list_v2', JSON.stringify(safeData)); } catch {}
     } catch (error) {
       setErrorMsg('Gagal memuat data proyek. Pastikan server terhubung.');
     } finally {
@@ -140,7 +142,7 @@ export default function ProjectList() {
   useEffect(() => {
     const hasCache = (cachedProjects && cachedProjects.length > 0) || (() => {
       try {
-        const saved = sessionStorage.getItem('cached_projects_list');
+        const saved = sessionStorage.getItem('cached_projects_list_v2');
         return saved && JSON.parse(saved).length > 0;
       } catch { return false; }
     })();
@@ -177,7 +179,7 @@ export default function ProjectList() {
       await Promise.all(stagedDeletions.map(id => api.delete(`/projects/${id}`)));
       setStagedDeletions([]); 
       cachedProjects = null;
-      try { sessionStorage.removeItem('cached_projects_list'); } catch {}
+      try { sessionStorage.removeItem('cached_projects_list_v2'); } catch {}
       await fetchProjects(false); 
       setIsEditMode(false); 
     } catch (error) {
@@ -210,7 +212,7 @@ export default function ProjectList() {
       setShowImportModal(false);
       setImportFile(null);
       cachedProjects = null;
-      try { sessionStorage.removeItem('cached_projects_list'); } catch {}
+      try { sessionStorage.removeItem('cached_projects_list_v2'); } catch {}
       fetchProjects(false); 
     } catch (error) {
       const serverMsg = error.response?.data?.message || 'Gagal mengimpor file. Periksa koneksi atau format data.';
@@ -238,6 +240,17 @@ export default function ProjectList() {
     }
   };
 
+  const getStatusStyle = (status) => {
+    const s = (status || '').toLowerCase();
+    if (s.includes('kritis') || s.includes('terlambat') || s.includes('delayed') || s.includes('batal')) {
+      return 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/30';
+    }
+    if (s.includes('selesai')) {
+      return 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30';
+    }
+    return 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/30';
+  };
+
   const uniqueStatus = ['Semua', ...new Set(projects.map(p => p.status || 'Persiapan'))];
   const uniqueSumber = ['Semua', ...new Set(projects.map(p => p.sumber_dana).filter(Boolean))];
   const uniqueKategori = ['Semua', ...new Set(projects.map(p => p.kategori || 'Belum Ditentukan'))];
@@ -245,9 +258,6 @@ export default function ProjectList() {
   const handleFilterChange = (key, value) => setFilters(prev => ({ ...prev, [key]: value }));
   const clearFilter = (key) => setFilters(prev => ({ ...prev, [key]: 'Semua' }));
 
-  // ==========================================
-  // PENGURUTAN, FILTERING & PAGINATION LOGIC
-  // ==========================================
   const filteredProjects = projects.filter((p) => {
     const query = searchQuery.toLowerCase();
     const matchSearch = 
@@ -263,7 +273,6 @@ export default function ProjectList() {
 
   const visibleProjects = filteredProjects.filter(p => !stagedDeletions.includes(p.id));
 
-  // Pengurutan: Proyek Baru (NEW) di paling atas, sisanya urut berdasarkan tanggal dibuat (terbaru ke terlama)
   const sortedProjects = [...visibleProjects].sort((a, b) => {
     const isNewA = isProjectNew(a);
     const isNewB = isProjectNew(b);
@@ -271,22 +280,18 @@ export default function ProjectList() {
     if (isNewA && !isNewB) return -1;
     if (!isNewA && isNewB) return 1;
 
-    // Jika sama-sama baru atau sama-sama lama, urutkan tanggal (desc)
     const dateA = new Date(a.created_at || 0);
     const dateB = new Date(b.created_at || 0);
     return dateB - dateA;
   });
 
-  // Hitung Paginasi
   const totalPages = Math.ceil(sortedProjects.length / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentItems = sortedProjects.slice(startIndex, startIndex + itemsPerPage);
 
-  // Jika user mengetik pencarian, otomatis kembali ke halaman 1
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, filters]);
-
 
   return (
     <div className="space-y-6 w-full relative pb-20">
@@ -323,7 +328,7 @@ export default function ProjectList() {
             />
           </div>
 
-          {/* FILTER BUTTON: AKSEN UNGU */}
+          {/* FILTER BUTTON */}
           <div className="relative" ref={filterRef}>
             <button 
               disabled={isLoading && projects.length === 0} 
@@ -389,7 +394,6 @@ export default function ProjectList() {
                   </button>
                 </>
               ) : (
-                /* EDIT BUTTON: AKSEN BIRU */
                 <button 
                   disabled={isLoading && projects.length === 0} 
                   onClick={() => setIsEditMode(true)} 
@@ -399,7 +403,6 @@ export default function ProjectList() {
                 </button>
               )}
 
-              {/* IMPORT EXCEL: AKSEN HIJAU */ }
               <button 
                 disabled={(isLoading && projects.length === 0) || isEditMode} 
                 onClick={() => setShowImportModal(true)} 
@@ -409,7 +412,6 @@ export default function ProjectList() {
                 <span className="hidden sm:inline">Import Excel</span>
               </button>
 
-              {/* PROYEK BARU: AKSEN AMBER */ }
               <button 
                 disabled={(isLoading && projects.length === 0) || isEditMode} 
                 onClick={() => navigate('/projects/tambah')} 
@@ -453,7 +455,7 @@ export default function ProjectList() {
         </div>
       )}
 
-      {/* KONTEN TABEL & KARTU (Menampilkan currentItems bukan visibleProjects) */}
+      {/* KONTEN TABEL & KARTU */}
       {isLoading && projects.length === 0 ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh] w-full bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl shadow-sm animate-fade-in">
           <Loader2 className="w-10 h-10 text-amber-500 animate-spin mb-4" />
@@ -464,8 +466,8 @@ export default function ProjectList() {
           {/* TAMPILAN MOBILE (KARTU) */}
           <div className="block md:hidden space-y-4">
             {currentItems.length > 0 ? currentItems.map((proj) => {
-              const displayStatus = (isGuest && proj.status === 'Delayed') ? 'Berjalan' : (proj.status || 'Persiapan');
-              const isDelayed = displayStatus === 'Delayed';
+              const rawStatus = proj.status || 'Persiapan';
+              const displayStatus = (isGuest && (rawStatus === 'Delayed' || rawStatus === 'Kritis' || rawStatus === 'Terlambat')) ? 'Berjalan' : rawStatus;
               const showNewBadge = isProjectNew(proj);
 
               return (
@@ -478,7 +480,6 @@ export default function ProjectList() {
                         proj.nama_proyek ? proj.nama_proyek.charAt(0).toUpperCase() : '-'
                       )}
                       
-                      {/* TITIK PULSE MERAH JIKA BARU DIBUAT & BELUM DILIHAT OLEH AKUN INI */}
                       {showNewBadge && !isEditMode && (
                         <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full border-2 border-white dark:border-slate-800 animate-pulse"></span>
                       )}
@@ -486,16 +487,15 @@ export default function ProjectList() {
 
                     <div className="flex-1 min-w-0 pr-2">
                        <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-                         {/* BADGE NEW KHUSUS AKUN INI */}
                          {showNewBadge && !isEditMode && (
                            <span className="px-1.5 py-0.5 text-[8px] font-black bg-rose-500 text-white rounded uppercase tracking-wider animate-pulse flex items-center gap-0.5 shadow-sm">
                              <Sparkles className="w-2.5 h-2.5" /> NEW
                            </span>
                          )}
 
-                         <span className={`px-2 py-0.5 text-[9px] font-bold rounded border inline-block ${
-                           isDelayed ? 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/30' : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/30'
-                         }`}>{displayStatus}</span>
+                         <span className={`px-2 py-0.5 text-[9px] font-bold rounded border inline-block ${getStatusStyle(displayStatus)}`}>
+                           {displayStatus}
+                         </span>
                          <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded text-[9px] font-bold border border-slate-200 dark:border-slate-700">
                            {proj.tahun_anggaran || 'Tahun N/A'}
                          </span>
@@ -511,16 +511,16 @@ export default function ProjectList() {
                   </div>
                   
                   <div className="grid grid-cols-2 gap-2 mt-2">
-                    <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg border border-blue-100 dark:border-blue-800/30 flex flex-col justify-center items-center text-center">
-                      <span className="text-[9px] text-blue-600 dark:text-blue-400 uppercase font-bold block mb-0.5 tracking-wider">Plan</span>
-                      <span className="font-mono text-[11px] font-bold text-blue-700 dark:text-blue-300">
-                        {proj.progress_plan !== undefined ? parseFloat(proj.progress_plan).toFixed(2) : '0.00'}%
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800/30 flex flex-col justify-center items-center text-center">
+                      <span className="text-[9px] text-blue-600 dark:text-blue-400 uppercase font-bold block mb-1 tracking-wider">Plan</span>
+                      <span className="font-mono text-xs font-extrabold text-blue-700 dark:text-blue-300">
+                        {formatDetailPercent(proj.progress_plan)}%
                       </span>
                     </div>
-                    <div className="bg-emerald-50 dark:bg-emerald-900/20 p-2 rounded-lg border border-emerald-100 dark:border-emerald-800/30 flex flex-col justify-center items-center text-center">
-                      <span className="text-[9px] text-emerald-600 dark:text-emerald-400 uppercase font-bold block mb-0.5 tracking-wider">Actual</span>
-                      <span className="font-mono text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
-                        {proj.progress_actual !== undefined ? parseFloat(proj.progress_actual).toFixed(2) : '0.00'}%
+                    <div className="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-xl border border-emerald-100 dark:border-emerald-800/30 flex flex-col justify-center items-center text-center">
+                      <span className="text-[9px] text-emerald-600 dark:text-emerald-400 uppercase font-bold block mb-1 tracking-wider">Actual</span>
+                      <span className="font-mono text-xs font-extrabold text-emerald-700 dark:text-emerald-300">
+                        {formatDetailPercent(proj.progress_actual)}%
                       </span>
                     </div>
                   </div>
@@ -531,18 +531,24 @@ export default function ProjectList() {
                          <Trash2 className="w-4 h-4 text-rose-500 hover:text-white" /> Hapus
                        </button>
                     ) : (
-                       <div className="flex gap-2 w-full">
+                       <div className="grid grid-cols-3 gap-2 w-full">
                          <button 
                            onClick={(e) => { e.stopPropagation(); handleOpenProjectData(proj); }} 
-                           className="flex-1 px-3 py-2.5 justify-center bg-white dark:bg-slate-700/80 hover:bg-amber-50 dark:hover:bg-amber-500/20 text-slate-700 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400 text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-sm border border-slate-200 dark:border-slate-600"
+                           className="px-2.5 py-2.5 justify-center bg-white dark:bg-slate-700/80 hover:bg-amber-50 dark:hover:bg-amber-500/20 text-slate-700 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400 text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-sm border border-slate-200 dark:border-slate-600"
                          >
-                           <Info className="w-4 h-4 shrink-0 text-amber-500" /> Data
+                           <Info className="w-3.5 h-3.5 shrink-0 text-amber-500" /> Data
                          </button>
                          <button 
                            onClick={(e) => { e.stopPropagation(); navigate(`/schedules/${proj.id}/data`, { state: proj }); }} 
-                           className="flex-1 px-3 py-2.5 justify-center bg-white dark:bg-slate-700/80 hover:bg-blue-50 dark:hover:bg-blue-500/20 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-sm border border-slate-200 dark:border-slate-600"
+                           className="px-2.5 py-2.5 justify-center bg-white dark:bg-slate-700/80 hover:bg-blue-50 dark:hover:bg-blue-500/20 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-sm border border-slate-200 dark:border-slate-600"
                          >
-                           <CalendarDays className="w-4 h-4 shrink-0 text-blue-500" /> Jadwal
+                           <CalendarDays className="w-3.5 h-3.5 shrink-0 text-blue-500" /> Jadwal
+                         </button>
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); navigate(`/projects/${proj.id}/gallery`, { state: proj }); }} 
+                           className="px-2.5 py-2.5 justify-center bg-white dark:bg-slate-700/80 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-sm border border-slate-200 dark:border-slate-600"
+                         >
+                           <ImageIcon className="w-3.5 h-3.5 shrink-0 text-emerald-500" /> Gallery
                          </button>
                        </div>
                     )}
@@ -571,103 +577,120 @@ export default function ProjectList() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-xs text-slate-700 dark:text-slate-300">
                   {currentItems.length > 0 ? currentItems.map((proj) => {
-                    const displayStatus = (isGuest && proj.status === 'Delayed') ? 'Berjalan' : (proj.status || 'Persiapan');
-                    const isDelayed = displayStatus === 'Delayed';
+                    const rawStatus = proj.status || 'Persiapan';
+                    const displayStatus = (isGuest && (rawStatus === 'Delayed' || rawStatus === 'Kritis' || rawStatus === 'Terlambat')) ? 'Berjalan' : rawStatus;
                     const showNewBadge = isProjectNew(proj);
 
                     return (
-                      <tr key={proj.id} className={`transition-all group ${isEditMode ? 'hover:bg-rose-50/30 dark:hover:bg-rose-900/10' : 'hover:bg-slate-50 dark:hover:bg-slate-700/30'}`}>
-                        <td className="p-4 align-top flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center font-bold text-slate-500 shrink-0 overflow-hidden shadow-sm relative">
-                            {proj.foto_sampul ? (
-                              <img src={getImageUrl(proj.foto_sampul)} alt="Banner" className="w-full h-full object-cover" />
-                            ) : (
-                              proj.nama_proyek ? proj.nama_proyek.charAt(0).toUpperCase() : '-'
-                            )}
-                            
-                            {/* INDIKATOR TITIK NEW PADA AVATAR */}
-                            {showNewBadge && !isEditMode && (
-                              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-slate-800 animate-pulse"></span>
-                            )}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-                               {/* BADGE TEKS NEW (HILANG SETELAH DIKLIK BUKA DATA OLEH AKUN INI) */}
-                               {showNewBadge && !isEditMode && (
-                                 <span className="px-1.5 py-0.5 text-[8px] font-black bg-rose-500 text-white rounded uppercase tracking-wider animate-pulse flex items-center gap-0.5 shadow-sm">
-                                   <Sparkles className="w-2.5 h-2.5" /> NEW
-                                 </span>
-                               )}
+                      <tr key={proj.id} className={`h-px transition-all group ${isEditMode ? 'hover:bg-rose-50/30 dark:hover:bg-rose-900/10' : 'hover:bg-slate-50 dark:hover:bg-slate-700/30'}`}>
+                        
+                        {/* KOLOM 1: INFORMASI PROYEK */}
+                        <td className="p-4 align-middle">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center font-bold text-slate-500 shrink-0 overflow-hidden shadow-sm relative">
+                              {proj.foto_sampul ? (
+                                <img src={getImageUrl(proj.foto_sampul)} alt="Banner" className="w-full h-full object-cover" />
+                              ) : (
+                                proj.nama_proyek ? proj.nama_proyek.charAt(0).toUpperCase() : '-'
+                              )}
+                              
+                              {showNewBadge && !isEditMode && (
+                                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-slate-800 animate-pulse"></span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                                 {showNewBadge && !isEditMode && (
+                                   <span className="px-1.5 py-0.5 text-[8px] font-black bg-rose-500 text-white rounded uppercase tracking-wider animate-pulse flex items-center gap-0.5 shadow-sm">
+                                     <Sparkles className="w-2.5 h-2.5" /> NEW
+                                   </span>
+                                 )}
 
-                               <span className={`px-2 py-0.5 text-[9px] font-bold rounded border inline-block ${
-                                 isDelayed ? 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/30' : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/30'
-                               }`}>{displayStatus}</span>
-                               <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded text-[9px] font-bold border border-slate-200 dark:border-slate-700">
-                                 {proj.tahun_anggaran || 'Tahun N/A'}
-                               </span>
-                               <span className={`px-2 py-0.5 rounded border text-[9px] font-extrabold uppercase tracking-wider shadow-sm truncate max-w-[180px] ${getCategoryStyle(proj.kategori)}`}>
-                                 {proj.kategori || 'Belum Ditentukan'}
-                               </span>
+                                 <span className={`px-2 py-0.5 text-[9px] font-bold rounded border inline-block ${getStatusStyle(displayStatus)}`}>
+                                   {displayStatus}
+                                 </span>
+
+                                 <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded text-[9px] font-bold border border-slate-200 dark:border-slate-700">
+                                   {proj.tahun_anggaran || 'Tahun N/A'}
+                                 </span>
+                                 <span className={`px-2 py-0.5 rounded border text-[9px] font-extrabold uppercase tracking-wider shadow-sm truncate max-w-[180px] ${getCategoryStyle(proj.kategori)}`}>
+                                   {proj.kategori || 'Belum Ditentukan'}
+                                 </span>
+                              </div>
+                              <div className="font-bold text-slate-800 dark:text-white text-[13px] leading-snug line-clamp-2 pr-4">{proj.nama_proyek}</div>
+                              <div className="text-[10px] text-amber-600 dark:text-amber-500/90 font-mono mt-1 font-bold">{proj.kode_kontrak || '-'}</div>
+                              <div className="flex items-center mt-1 text-[10px] text-slate-500"><MapPin className="w-3 h-3 mr-0.5 text-rose-500 shrink-0"/>{proj.lokasi_wilayah || 'Lokasi belum diset'}</div>
                             </div>
-                            <div className="font-bold text-slate-800 dark:text-white text-[13px] leading-snug line-clamp-2 pr-4">{proj.nama_proyek}</div>
-                            <div className="text-[10px] text-amber-600 dark:text-amber-500/90 font-mono mt-1 font-bold">{proj.kode_kontrak || '-'}</div>
-                            <div className="flex items-center mt-1 text-[10px] text-slate-500"><MapPin className="w-3 h-3 mr-0.5 text-rose-500"/>{proj.lokasi_wilayah || 'Lokasi belum diset'}</div>
                           </div>
                         </td>
-                        <td className="p-4 align-top space-y-2">
-                          <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-700 dark:text-slate-300">
-                            <HardHat className="w-3.5 h-3.5 text-blue-500 shrink-0" /> 
-                            <span className="truncate" title={proj.konsultan || 'Belum diset'}>{proj.konsultan || 'Konsultan Belum Diset'}</span>
-                          </div>
-                          {canViewFinance && (
-                            <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500 dark:text-slate-400">
-                              <span>Sumber : <strong className="text-slate-700 dark:text-slate-300">{proj.sumber_dana || 'N/A'}</strong></span>
+
+                        {/* KOLOM 2: KONSULTAN PENGAWAS & ADMINISTRASI */}
+                        <td className="p-4 align-middle">
+                          <div className="flex flex-col justify-center h-full space-y-2">
+                            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                              <HardHat className="w-3.5 h-3.5 text-blue-500 shrink-0" /> 
+                              <span className="truncate" title={proj.konsultan || 'Belum diset'}>{proj.konsultan || 'Konsultan Belum Diset'}</span>
                             </div>
-                          )}
-                          <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-600 dark:text-slate-400 mt-1 border-t border-slate-100 dark:border-slate-700/60 pt-1.5">
-                             <Calendar className="w-3.5 h-3.5 text-amber-500" /> 
-                             <span>{proj.tanggal_mulai || '?'} <span className="text-slate-400 font-mono">s/d</span> {proj.tanggal_selesai || '?'}</span>
+                            {canViewFinance && (
+                              <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                                <span>Sumber : <strong className="text-slate-700 dark:text-slate-300">{proj.sumber_dana || 'N/A'}</strong></span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-700/60">
+                               <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
+                               <span>{proj.tanggal_mulai || '?'} <span className="text-slate-400 font-mono">s/d</span> {proj.tanggal_selesai || '?'}</span>
+                            </div>
                           </div>
                         </td>
-                        <td className="p-4 align-top">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg border border-blue-100 dark:border-blue-800/30 flex flex-col justify-center items-center text-center">
-                              <span className="text-[9px] text-blue-600 dark:text-blue-400 uppercase font-bold block mb-0.5 tracking-wider">Plan</span>
-                              <span className="font-mono text-[11px] font-bold text-blue-700 dark:text-blue-300">
-                                {proj.progress_plan !== undefined ? parseFloat(proj.progress_plan).toFixed(2) : '0.00'}%
+
+                        {/* KOLOM 3: PROGRESS S-CURVE (4 ANGKA DI BELAKANG KOMA & FULL HEIGHT) */}
+                        <td className="p-4 align-middle h-full">
+                          <div className="grid grid-cols-2 gap-2.5 h-full min-h-[104px]">
+                            <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800/40 flex flex-col justify-center items-center text-center h-full shadow-inner">
+                              <span className="text-[10px] text-blue-600 dark:text-blue-400 uppercase font-extrabold block mb-1.5 tracking-wider">Plan</span>
+                              <span className="font-mono text-xs lg:text-sm font-extrabold text-blue-700 dark:text-blue-300">
+                                {formatDetailPercent(proj.progress_plan)}%
                               </span>
                             </div>
-                            <div className="bg-emerald-50 dark:bg-emerald-900/20 p-2 rounded-lg border border-emerald-100 dark:border-emerald-800/30 flex flex-col justify-center items-center text-center">
-                              <span className="text-[9px] text-emerald-600 dark:text-emerald-400 uppercase font-bold block mb-0.5 tracking-wider">Actual</span>
-                              <span className="font-mono text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
-                                {proj.progress_actual !== undefined ? parseFloat(proj.progress_actual).toFixed(2) : '0.00'}%
+                            <div className="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-xl border border-emerald-100 dark:border-emerald-800/40 flex flex-col justify-center items-center text-center h-full shadow-inner">
+                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase font-extrabold block mb-1.5 tracking-wider">Actual</span>
+                              <span className="font-mono text-xs lg:text-sm font-extrabold text-emerald-700 dark:text-emerald-300">
+                                {formatDetailPercent(proj.progress_actual)}%
                               </span>
                             </div>
                           </div>
                         </td>
+
+                        {/* KOLOM 4: AKSI */}
                         <td className="p-4 align-middle text-center">
                           {isEditMode ? (
                              <div className="flex flex-col gap-2">
                                <button 
                                  onClick={(e) => confirmDelete(e, proj.id, proj.nama_proyek)} 
-                                 className="px-3.5 py-2 w-full justify-center bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white dark:bg-rose-500/10 dark:hover:bg-rose-500 dark:text-rose-400 dark:border-rose-500/20 text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-sm border border-rose-200 animate-fade-in"
+                                 className="px-3.5 py-2.5 w-full justify-center bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white dark:bg-rose-500/10 dark:hover:bg-rose-500 dark:text-rose-400 dark:border-rose-500/20 text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-sm border border-rose-200 animate-fade-in"
                                >
                                  <Trash2 className="w-3.5 h-3.5 text-rose-500 group-hover:text-white" /> Hapus
                                </button>
                              </div>
                           ) : (
-                             <div className="flex flex-col gap-2">
+                             <div className="flex flex-col gap-1.5">
                                <button 
                                  onClick={(e) => { e.stopPropagation(); handleOpenProjectData(proj); }} 
-                                 className="px-3.5 py-2 w-full justify-center bg-white dark:bg-slate-700/80 hover:bg-amber-50 dark:hover:bg-amber-500/20 text-slate-700 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400 text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-sm border border-slate-200 dark:border-slate-600 animate-fade-in"
+                                 className="px-3.5 py-1.5 w-full justify-center bg-white dark:bg-slate-700/80 hover:bg-amber-50 dark:hover:bg-amber-500/20 text-slate-700 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400 text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-sm border border-slate-200 dark:border-slate-600 animate-fade-in"
                                >
-                                 <Info className="w-3.5 h-3.5 text-amber-500" /> Buka Data
+                                 <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" /> Buka Data
                                </button>
                                <button 
                                  onClick={(e) => { e.stopPropagation(); navigate(`/schedules/${proj.id}/data`, { state: proj }); }} 
-                                 className="px-3.5 py-2 w-full justify-center bg-white dark:bg-slate-700/80 hover:bg-blue-50 dark:hover:bg-blue-500/20 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-sm border border-slate-200 dark:border-slate-600 animate-fade-in"
+                                 className="px-3.5 py-1.5 w-full justify-center bg-white dark:bg-slate-700/80 hover:bg-blue-50 dark:hover:bg-blue-500/20 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-sm border border-slate-200 dark:border-slate-600 animate-fade-in"
                                >
-                                 <CalendarDays className="w-3.5 h-3.5 text-blue-500" /> Buka Jadwal
+                                 <CalendarDays className="w-3.5 h-3.5 text-blue-500 shrink-0" /> Buka Jadwal
+                               </button>
+                               <button 
+                                 onClick={(e) => { e.stopPropagation(); navigate(`/projects/${proj.id}/gallery`, { state: proj }); }} 
+                                 className="px-3.5 py-1.5 w-full justify-center bg-white dark:bg-slate-700/80 hover:bg-emerald-50 dark:hover:bg-emerald-500/20 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-sm border border-slate-200 dark:border-slate-600 animate-fade-in"
+                               >
+                                 <ImageIcon className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Buka Gallery
                                </button>
                              </div>
                           )}
@@ -705,7 +728,6 @@ export default function ProjectList() {
                 <div className="flex items-center gap-1">
                   {Array.from({ length: totalPages }).map((_, idx) => {
                     const pageNum = idx + 1;
-                    // Hanya tampilkan max 5 halaman (sekitar halaman aktif)
                     if (pageNum === 1 || pageNum === totalPages || (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)) {
                       return (
                         <button 
@@ -740,10 +762,12 @@ export default function ProjectList() {
         <span className="font-semibold text-slate-700 dark:text-slate-300 shrink-0">Keterangan & Aksi:</span>
         <div className="flex flex-wrap gap-x-4 gap-y-2">
           <span className="flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-rose-500"/> Proyek Baru (Belum Anda Buka)</span>
-          <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div> Sesuai / Mendahului Rencana</span>
-          <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-rose-500"></div> Delayed / Keterlambatan</span>
+          <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div> Selesai</span>
+          <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div> On-Going / Progress</span>
+          <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-rose-500"></div> Kritis / Terlambat</span>
           <span className="flex items-center gap-1.5"><Info className="w-3.5 h-3.5 text-amber-500" /> Buka Data Utama</span>
           <span className="flex items-center gap-1.5"><CalendarDays className="w-3.5 h-3.5 text-blue-500" /> Buka Jadwal Time Schedule</span>
+          <span className="flex items-center gap-1.5"><ImageIcon className="w-3.5 h-3.5 text-emerald-500" /> Buka Galeri Proyek</span>
         </div>
       </div>
 

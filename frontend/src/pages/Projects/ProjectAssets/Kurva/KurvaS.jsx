@@ -12,6 +12,12 @@ import { ModalMingguan, ModalSimpan, ModalExport } from './ModalsKurva';
 
 let cachedScheduleDetails = {};
 
+const LOADING_MESSAGES = [
+  'Memuat data kurva...',
+  'Memuat data schedule...',
+  'Menyusun matriks & grafik S-Curve...'
+];
+
 export default function KurvaS({ selectedProject }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -19,8 +25,37 @@ export default function KurvaS({ selectedProject }) {
 
   useEffect(() => { document.title = "Prisma Group - Kurva S & Time Schedule"; }, []);
 
-  const project = selectedProject || location.state || { id: id, nama_proyek: 'Memuat Data...'};
-  const projectId = project.id || id;
+  const targetId = selectedProject?.id || location.state?.id || id;
+
+  const getInitialSchedule = () => {
+    if (cachedScheduleDetails[targetId]) return cachedScheduleDetails[targetId];
+    return null;
+  };
+  const initialCache = getInitialSchedule();
+
+  const [scheduleData, setScheduleData] = useState(initialCache);
+  const [grandTotalRAB, setGrandTotalRAB] = useState(initialCache?.grand_total_rab || 0);
+
+  const hasCachedFullData = Boolean(initialCache);
+  const [isLoading, setIsLoading] = useState(!hasCachedFullData);
+  const [isRenderingUI, setIsRenderingUI] = useState(true);
+
+  // STATE TRANSISI LOADING INTERAKTIF
+  const [loadingStep, setLoadingStep] = useState(0);
+
+  useEffect(() => {
+    if (!isLoading && !isRenderingUI) return;
+    const interval = setInterval(() => {
+      setLoadingStep((prev) => (prev + 1) % LOADING_MESSAGES.length);
+    }, 1200);
+    return () => clearInterval(interval);
+  }, [isLoading, isRenderingUI]);
+
+  const project = selectedProject || location.state || scheduleData?.project_info || { 
+    id: targetId, 
+    nama_proyek: LOADING_MESSAGES[loadingStep] 
+  };
+  const projectId = project.id || targetId;
 
   const [userRole] = useState(() => {
     try {
@@ -33,25 +68,11 @@ export default function KurvaS({ selectedProject }) {
   const canExportData = ['Administrator', 'Direktur'].includes(userRole);
   const isGuest = userRole === 'Tamu';
 
-  const [isRenderingUI, setIsRenderingUI] = useState(true);
-
   useEffect(() => {
     setIsRenderingUI(true);
     const timer = setTimeout(() => setIsRenderingUI(false), 50);
     return () => clearTimeout(timer);
   }, [projectId]);
-
-  const getInitialSchedule = () => {
-    if (cachedScheduleDetails[projectId]) return cachedScheduleDetails[projectId];
-    return null;
-  };
-  const initialCache = getInitialSchedule();
-
-  const [scheduleData, setScheduleData] = useState(initialCache);
-  const [grandTotalRAB, setGrandTotalRAB] = useState(initialCache?.grand_total_rab || 0);
-  
-  const hasCachedFullData = Boolean(initialCache);
-  const [isLoading, setIsLoading] = useState(!hasCachedFullData);
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -67,6 +88,14 @@ export default function KurvaS({ selectedProject }) {
   const [filterMode, setFilterMode] = useState('Mingguan'); 
   const [tempFilterMode, setTempFilterMode] = useState('Mingguan');
   const filterRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (filterRef.current && !filterRef.current.contains(event.target)) setShowFilterPopup(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // AUTO-SWITCH SKALA GRAFIK BERDASARKAN JUMLAH MINGGU
   const prevWeekCount = useRef(0);
@@ -107,14 +136,18 @@ export default function KurvaS({ selectedProject }) {
   const handleRemoveInitialWeek = (id) => setWeeksForm(weeksForm.filter(w => w.id !== id));
 
   const handleSaveInitialSchedule = async () => {
-    if (weeksForm.some(w => !w.tanggal_mulai || !w.tanggal_selesai || !w.target_kumulatif)) {
+    if (weeksForm.some(w => !w.tanggal_mulai || !w.tanggal_selesai || w.target_kumulatif === '' || w.target_kumulatif === null || w.target_kumulatif === undefined)) {
       return alert("Mohon lengkapi Tanggal Mulai, Tanggal Selesai, dan Target Kumulatif pada semua minggu.");
     }
     
     setIsSavingInitial(true);
     try {
       const payload = weeksForm.map(w => ({
-        minggu_ke: w.minggu_ke, bulan: w.bulan, tanggal_awal: w.tanggal_mulai, tanggal_akhir: w.tanggal_selesai, target_kumulatif: parseFloat(w.target_kumulatif.toString().replace(',', '.')) || 0
+        minggu_ke: w.minggu_ke, 
+        bulan: w.bulan, 
+        tanggal_awal: w.tanggal_mulai, 
+        tanggal_akhir: w.tanggal_selesai, 
+        target_kumulatif: parseFloat((parseFloat(w.target_kumulatif.toString().replace(',', '.')) || 0).toFixed(4))
       }));
       await api.post(`/projects/${projectId}/schedules`, { full_sync: true, weeks: payload });
       alert("Jadwal Pertama Berhasil Disimpan!");
@@ -216,7 +249,10 @@ export default function KurvaS({ selectedProject }) {
   const handleSaveSchedule = async () => {
     setSaveModal(false); setIsSaving(true);
     const safeWeeks = Array.isArray(localWeeks) ? localWeeks : [];
-    const payloadWeeks = safeWeeks.map(w => ({ ...w, target_kumulatif: parseFloat(w.target_kumulatif) || 0 }));
+    const payloadWeeks = safeWeeks.map(w => ({ 
+      ...w, 
+      target_kumulatif: parseFloat((parseFloat(String(w.target_kumulatif).replace(',', '.')) || 0).toFixed(4)) 
+    }));
     try {
       await api.post(`/projects/${projectId}/schedules`, { full_sync: true, weeks: payloadWeeks });
       alert("Target Jadwal Berhasil Disimpan!");
@@ -337,7 +373,6 @@ export default function KurvaS({ selectedProject }) {
 
       if (hasReportToday) cumRealisasi += actVal;
       
-      // PERBAIKAN INTI: Titik Aktual & Deviasi HANYA diisi jika hari tersebut ada laporan (hasReportToday)
       let finalRealisasiKumulatif = null;
       let finalDeviasi = null;
 
@@ -459,8 +494,18 @@ export default function KurvaS({ selectedProject }) {
   if (isRenderingUI) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[40vh] w-full bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl shadow-sm animate-fade-in">
-        <Loader2 className="w-10 h-10 text-amber-500 animate-spin mb-4" />
-        <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Menyusun Matriks Tabel & Grafik...</p>
+        <Loader2 className="w-10 h-10 text-amber-500 animate-spin mb-3" />
+        <p key={loadingStep} className="text-sm font-bold text-slate-700 dark:text-slate-200 animate-fade-in transition-all duration-300">
+          {LOADING_MESSAGES[loadingStep]}
+        </p>
+        <div className="flex items-center gap-1.5 mt-3">
+          {LOADING_MESSAGES.map((_, idx) => (
+            <span 
+              key={idx} 
+              className={`h-1.5 rounded-full transition-all duration-300 ${loadingStep === idx ? 'w-5 bg-amber-500' : 'w-1.5 bg-slate-300 dark:bg-slate-600'}`} 
+            />
+          ))}
+        </div>
       </div>
     );
   }
@@ -475,7 +520,20 @@ export default function KurvaS({ selectedProject }) {
       />
 
       {isLoading && !hasCachedFullData ? (
-        <div className="flex flex-col items-center justify-center min-h-[40vh] w-full bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl shadow-sm animate-fade-in"><Loader2 className="w-10 h-10 text-amber-500 animate-spin mb-4" /><p className="text-sm font-medium text-slate-500 dark:text-slate-400">Memproses Dashboard S-Curve...</p></div>
+        <div className="flex flex-col items-center justify-center min-h-[40vh] w-full bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl shadow-sm animate-fade-in">
+          <Loader2 className="w-10 h-10 text-amber-500 animate-spin mb-3" />
+          <p key={loadingStep} className="text-sm font-bold text-slate-700 dark:text-slate-200 animate-fade-in transition-all duration-300">
+            {LOADING_MESSAGES[loadingStep]}
+          </p>
+          <div className="flex items-center gap-1.5 mt-3">
+            {LOADING_MESSAGES.map((_, idx) => (
+              <span 
+                key={idx} 
+                className={`h-1.5 rounded-full transition-all duration-300 ${loadingStep === idx ? 'w-5 bg-amber-500' : 'w-1.5 bg-slate-300 dark:bg-slate-600'}`} 
+              />
+            ))}
+          </div>
+        </div>
       ) : isScheduleEmpty ? (
         <SetupJadwalPertama weeksForm={weeksForm} handleInitialWeekChange={handleInitialWeekChange} handleAddInitialWeek={handleAddInitialWeek} handleRemoveInitialWeek={handleRemoveInitialWeek} projectBounds={projectBounds} handleSaveInitialSchedule={handleSaveInitialSchedule} isSavingInitial={isSavingInitial} navigate={navigate} />
       ) : (
@@ -503,7 +561,6 @@ export default function KurvaS({ selectedProject }) {
                       <XAxis dataKey="xAxisLabel" stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} className="dark:stroke-slate-400" />
                       <YAxis stroke="#64748b" fontSize={11} domain={['auto', 100]} unit="%" tickLine={false} axisLine={false} className="dark:stroke-slate-400" />
                       <Tooltip content={<CustomTooltip />} />
-                      {/* connectNulls={true} membuat garis melompati tanggal/minggu/bulan yang kosong tanpa menggambar titik di area kosong */}
                       {showPlanCurve && <Line type="monotone" dataKey="rencanaKumulatif" name="Target Rencana" stroke="#3b82f6" strokeWidth={3} dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={true} />}
                       {showActualCurve && <Line type="monotone" dataKey="realisasiKumulatif" name="Aktual Kumulatif" stroke="#10b981" strokeWidth={3} dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={true} />}
                       {showDeviationCurve && <Line type="monotone" dataKey="deviasiKumulatif" name="Deviasi" stroke="#f59e0b" strokeWidth={3} strokeDasharray="5 5" dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={true} />}

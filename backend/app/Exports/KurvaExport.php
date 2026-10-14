@@ -5,9 +5,11 @@ namespace App\Exports;
 use Illuminate\Contracts\View\View;
 use Maatwebsite\Excel\Concerns\FromView;
 use Maatwebsite\Excel\Concerns\WithTitle;
+use Maatwebsite\Excel\Concerns\WithCustomValueBinder;
+use PhpOffice\PhpSpreadsheet\Cell\StringValueBinder;
 
-// HAPUS ShouldAutoSize AGAR TIDAK ERROR 500
-class KurvaExport implements FromView, WithTitle
+// Menggunakan StringValueBinder agar format desimal (0.0044, 5.00, +0.07) tidak diubah otomatis oleh Excel
+class KurvaExport extends StringValueBinder implements FromView, WithTitle, WithCustomValueBinder
 {
     protected $data;
 
@@ -23,6 +25,6 @@ class KurvaExport implements FromView, WithTitle
 
     public function title(): string
     {
-        return 'Kurva S dan Matriks'; // SANGAT AMAN: Hanya 20 Karakter
+        return 'Kurva S dan Matriks';
     }
 }

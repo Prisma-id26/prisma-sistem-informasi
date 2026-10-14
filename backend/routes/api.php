@@ -118,4 +118,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/cms/events/{id}', [CompanyProfileController::class, 'destroyEvent']);
 
     Route::get('/projects/{id}/gallery', [ProjectGalleryController::class, 'index']);
+
+    Route::get('/projects/{id}/gallery-archive', [App\Http\Controllers\ProjectDetailController::class, 'downloadGalleryArchive']);
 });

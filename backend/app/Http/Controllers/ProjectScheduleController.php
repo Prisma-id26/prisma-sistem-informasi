@@ -73,7 +73,8 @@ class ProjectScheduleController extends Controller
                 foreach ($rabCategories as $cat) {
                     $items = collect($rabItems)->where('rab_category_id', $cat->id)->map(function ($item) use ($grandTotalRAB) {
                         $bobot = ($grandTotalRAB > 0 && !$item->is_subheader) ? ($item->total_harga / $grandTotalRAB) * 100 : 0;
-                        $item->bobot = round($bobot, 2);
+                        // Presisi hingga 4 desimal
+                        $item->bobot = round($bobot, 4);
                         return $item;
                     })->values();
 
@@ -106,17 +107,17 @@ class ProjectScheduleController extends Controller
                 foreach ($aggregatedActuals as $r) {
                     $itemId = $r->rab_item_id;
                     $minggu = $r->minggu_ke ?? 0;
-                    $persen = (float) $r->total_persen;
+                    $persen = round((float) $r->total_persen, 4);
 
                     if ($itemId) {
                         if (!isset($matrix_actual[$itemId])) $matrix_actual[$itemId] = [];
                         $matrix_actual[$itemId][$minggu] = $persen;
 
                         if (!isset($weekly_actual[$minggu])) $weekly_actual[$minggu] = 0;
-                        $weekly_actual[$minggu] += $persen;
+                        $weekly_actual[$minggu] = round($weekly_actual[$minggu] + $persen, 4);
 
                         if (!isset($cumulative_actual[$itemId])) $cumulative_actual[$itemId] = 0;
-                        $cumulative_actual[$itemId] += $persen;
+                        $cumulative_actual[$itemId] = round($cumulative_actual[$itemId] + $persen, 4);
                     }
                 }
 
@@ -155,7 +156,7 @@ class ProjectScheduleController extends Controller
                 $insertData[] = [
                     'project_id' => $projectId, 'minggu_ke' => $week['minggu_ke'], 'bulan' => $week['bulan'] ?? null,
                     'tanggal_awal' => $week['tanggal_awal'] ?? null, 'tanggal_akhir' => $week['tanggal_akhir'] ?? null,
-                    'target_kumulatif' => (float) ($week['target_kumulatif'] ?? 0), 'created_at' => $now, 'updated_at' => $now,
+                    'target_kumulatif' => round((float) ($week['target_kumulatif'] ?? 0), 4), 'created_at' => $now, 'updated_at' => $now,
                 ];
             }
 
@@ -212,15 +213,15 @@ class ProjectScheduleController extends Controller
             foreach ($aggregatedActuals as $r) {
                 $itemId = $r->rab_item_id;
                 $minggu = $r->minggu_ke ?? 0;
-                $persen = (float) $r->total_persen;
+                $persen = round((float) $r->total_persen, 4);
 
                 if ($itemId) {
                     if (!isset($matrix_actual[$itemId])) $matrix_actual[$itemId] = [];
                     $matrix_actual[$itemId][$minggu] = $persen;
                     if (!isset($weekly_actual[$minggu])) $weekly_actual[$minggu] = 0;
-                    $weekly_actual[$minggu] += $persen;
+                    $weekly_actual[$minggu] = round($weekly_actual[$minggu] + $persen, 4);
                     if (!isset($cumulative_actual[$itemId])) $cumulative_actual[$itemId] = 0;
-                    $cumulative_actual[$itemId] += $persen;
+                    $cumulative_actual[$itemId] = round($cumulative_actual[$itemId] + $persen, 4);
                 }
             }
         } catch (Throwable $th) {}
@@ -242,7 +243,8 @@ class ProjectScheduleController extends Controller
         foreach ($rabCategories as $cat) {
             $items = collect($rabItems)->where('rab_category_id', $cat->id)->map(function ($item) use ($grandTotalRAB) {
                 $bobot = ($grandTotalRAB > 0 && !$item->is_subheader) ? ($item->total_harga / $grandTotalRAB) * 100 : 0;
-                $item->bobot = round($bobot, 2);
+                // Presisi hingga 4 desimal untuk ekspor PDF & Excel
+                $item->bobot = round($bobot, 4);
                 return $item;
             })->values();
 

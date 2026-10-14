@@ -1,3 +1,18 @@
+@php
+    // Helper pemformatan desimal fleksibel (identik dengan formatDetailPercent di Frontend)
+    $formatPercent = function ($val) {
+        $num = (float) ($val ?? 0);
+        if (abs($num) < 0.00001) return '0.00';
+        $fixed4 = round($num, 4);
+        $str4 = rtrim(rtrim(number_format($fixed4, 4, '.', ''), '0'), '.');
+        $parts = explode('.', $str4);
+        if (!isset($parts[1]) || strlen($parts[1]) <= 2) {
+            return number_format($fixed4, 2, '.', '');
+        }
+        return $str4;
+    };
+@endphp
+
 @if(!isset($isExcel) || !$isExcel)
 <!DOCTYPE html>
 <html lang="id">
@@ -17,7 +32,7 @@
         .text-left { text-align: left; }
         .col-kode { width: 6%; }
         .col-uraian { width: 25%; }
-        .col-bobot { width: 4%; }
+        .col-bobot { width: 5%; }
         .col-total { width: 6%; }
     </style>
 </head>
@@ -69,19 +84,20 @@
                             <tr>
                                 <td class="text-left" style="font-size: 7px;">{{ $item->kode_pekerjaan }}</td>
                                 <td class="text-left">{{ $item->uraian_pekerjaan }}</td>
-                                <td style="font-weight: bold;">{{ number_format($item->bobot, 2) }}%</td>
+                                <td style="font-weight: bold;">{{ $formatPercent($item->bobot) }}%</td>
 
                                 @foreach($localWeeks as $w)
                                     @php
+                                        $isExist = isset($matrix_actual[$item->id][$w->minggu_ke]);
                                         $act = $matrix_actual[$item->id][$w->minggu_ke] ?? 0;
                                     @endphp
-                                    <td>{{ $act > 0 ? number_format($act, 2) : '-' }}</td>
+                                    <td>{{ ($isExist || $act > 0) ? $formatPercent($act) : '-' }}</td>
                                 @endforeach
 
                                 @php
                                     $cum = $cumulative_actual[$item->id] ?? 0;
                                 @endphp
-                                <td style="font-weight: bold; color: #059669;">{{ $cum > 0 ? number_format($cum, 2) . '%' : '-' }}</td>
+                                <td style="font-weight: bold; color: #059669;">{{ $cum > 0 ? $formatPercent($cum) . '%' : '-' }}</td>
                             </tr>
                         @endif
                     @endforeach
@@ -95,24 +111,24 @@
                     @php $prevTarget = 0; @endphp
                     @foreach($localWeeks as $w)
                         @php
-                            $rencanaMingguan = $w->target_kumulatif - $prevTarget;
+                            $rencanaMingguan = round($w->target_kumulatif - $prevTarget, 4);
                             $prevTarget = $w->target_kumulatif;
                         @endphp
-                        <th style="color: #2563eb;">{{ $rencanaMingguan > 0 ? number_format($rencanaMingguan, 2) : '-' }}</th>
+                        <th style="color: #2563eb;">{{ $formatPercent($rencanaMingguan) }}</th>
                     @endforeach
-                    <th style="color: #2563eb;">{{ number_format($localWeeks->last()->target_kumulatif ?? 0, 2) }}%</th>
+                    <th style="color: #2563eb;">{{ $formatPercent($localWeeks->last()->target_kumulatif ?? 0) }}%</th>
                 </tr>
 
                 <!-- BARIS 2: JUMLAH RENCANA KUMULATIF -->
                 <tr style="background-color: #e0f2fe;">
                     <th colspan="3" style="text-align: right; color: #0369a1;">Jumlah Rencana Kumulatif</th>
                     @foreach($localWeeks as $w)
-                        <th style="color: #0369a1;">{{ $w->target_kumulatif > 0 ? number_format($w->target_kumulatif, 2) : '-' }}</th>
+                        <th style="color: #0369a1;">{{ $formatPercent($w->target_kumulatif) }}</th>
                     @endforeach
                     <th style="color: #0369a1;">-</th>
                 </tr>
 
-                <!-- BARIS 3: REALISASI -->
+                <!-- BARIS 3: REALISASI (KUMULATIF SESUAI FRONTEND) -->
                 <tr style="background-color: #ecfdf5;">
                     <th colspan="3" style="text-align: right; color: #059669;">Realisasi</th>
                     @php
@@ -123,10 +139,14 @@
                         }
                     @endphp
                     @foreach($localWeeks as $w)
-                        @php $wAct = $weekly_actual[$w->minggu_ke] ?? 0; @endphp
-                        <th style="color: #059669;">{{ $wAct > 0 ? number_format($wAct, 2) : '-' }}</th>
+                        @php
+                            $wAct = $weekly_actual[$w->minggu_ke] ?? 0;
+                            $runningActual = round($runningActual + $wAct, 4);
+                            $hasReport = ($maxReportedWeek > 0 && $w->minggu_ke <= $maxReportedWeek);
+                        @endphp
+                        <th style="color: #059669;">{{ $hasReport ? $formatPercent($runningActual) : '-' }}</th>
                     @endforeach
-                    <th style="color: #059669;">{{ number_format(array_sum($weekly_actual), 2) }}%</th>
+                    <th style="color: #059669;">{{ $formatPercent(array_sum($weekly_actual)) }}%</th>
                 </tr>
 
                 <!-- BARIS 4: DEVIASI -->
@@ -136,14 +156,15 @@
                     @foreach($localWeeks as $w)
                         @php
                             $wAct = $weekly_actual[$w->minggu_ke] ?? 0;
-                            $runningActual += $wAct;
+                            $runningActual = round($runningActual + $wAct, 4);
                             $showCum = ($maxReportedWeek > 0 && $w->minggu_ke <= $maxReportedWeek);
                             $devStr = '-';
                             $color = '#4b5563';
 
                             if ($showCum) {
-                                $dev = $runningActual - $w->target_kumulatif;
-                                $devStr = $dev > 0 ? '+'.number_format($dev, 2) : number_format($dev, 2);
+                                $dev = round($runningActual - $w->target_kumulatif, 4);
+                                $devFormatted = $formatPercent($dev);
+                                $devStr = $dev > 0 ? '+' . $devFormatted : $devFormatted;
                                 $color = $dev < 0 ? '#dc2626' : ($dev > 0 ? '#059669' : '#d97706');
                             }
                         @endphp

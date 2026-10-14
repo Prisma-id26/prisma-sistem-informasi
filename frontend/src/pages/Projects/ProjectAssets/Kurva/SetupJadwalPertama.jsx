@@ -5,6 +5,13 @@ export default function SetupJadwalPertama({
   weeksForm, handleInitialWeekChange, handleAddInitialWeek, handleRemoveInitialWeek,
   projectBounds, handleSaveInitialSchedule, isSavingInitial, navigate
 }) {
+  const formatDetailPercent = (val) => {
+  if (val === '' || val === null || val === undefined) return '';
+  const num = parseFloat(String(val).replace(',', '.'));
+  if (isNaN(num)) return '';
+  return num.toFixed(4);
+};
+
   return (
     <div className="animate-fade-in space-y-4">
       <div className="p-4 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-sm">
@@ -43,7 +50,23 @@ export default function SetupJadwalPertama({
                     <div className="space-y-3 pt-1">
                       <label className="text-[10px] font-medium text-slate-500">Target Kumulatif (Plan) <span className="text-rose-500">*</span></label>
                       <div className="flex items-center gap-3">
-                         <input type="text" placeholder="0.00" value={week.target_kumulatif} onChange={(e) => handleInitialWeekChange(week.id, 'target_kumulatif', e.target.value)} className="w-32 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-300 dark:border-emerald-500/50 text-center font-mono text-xl font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded-xl text-emerald-600 dark:text-emerald-400 py-3 shadow-inner" />
+                         <input 
+                           type="text" 
+                           inputMode="decimal"
+                           placeholder="0.00" 
+                           value={week.target_kumulatif} 
+                           onChange={(e) => {
+                             const rawVal = e.target.value.replace(',', '.');
+                             if (!/^\d*\.?\d{0,4}$/.test(rawVal)) return;
+                             handleInitialWeekChange(week.id, 'target_kumulatif', rawVal);
+                           }} 
+                           onBlur={() => {
+                             if (week.target_kumulatif !== '') {
+                               handleInitialWeekChange(week.id, 'target_kumulatif', formatDetailPercent(week.target_kumulatif));
+                             }
+                           }}
+                           className="w-40 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-300 dark:border-emerald-500/50 text-center font-mono text-xl font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded-xl text-emerald-600 dark:text-emerald-400 py-3 shadow-inner" 
+                         />
                          <span className="font-extrabold text-emerald-600 dark:text-emerald-500 text-2xl">%</span>
                       </div>
                     </div>

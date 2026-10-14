@@ -21,11 +21,11 @@ export default function ProjectData() {
   }, []);
 
   const getInitialProject = () => {
-    if (cachedProjectDetails[id]) return cachedProjectDetails[id];
     try {
       const saved = sessionStorage.getItem(`cached_project_detail_${id}`);
       if (saved) return JSON.parse(saved);
     } catch {}
+    if (cachedProjectDetails[id]) return cachedProjectDetails[id];
     if (location.state && location.state.tanggal_mulai) return location.state;
     return location.state || { id: id, nama_proyek: 'Memuat Data...' };
   };
@@ -157,14 +157,12 @@ export default function ProjectData() {
         const payloadData = { ...editFormData };
         const personnelsArray = editFormData.personnels || [];
         
-        // Buang data array/objek yang tidak dikenali backend utama
         delete payloadData.documents; 
         delete payloadData.created_at; 
         delete payloadData.updated_at; 
         delete payloadData.foto_sampul; 
         delete payloadData.personnels; 
 
-        // 1. SIMPAN DATA MASTER PROYEK (Kontrak, Uraian, dsb)
         const formDataToSend = new FormData();
         Object.keys(payloadData).forEach(key => formDataToSend.append(key, payloadData[key] === null ? '' : payloadData[key]));
         
@@ -174,13 +172,11 @@ export default function ProjectData() {
         formDataToSend.append('_method', 'PUT'); 
         await api.post(`/projects/${id}`, formDataToSend, { headers: { 'Content-Type': 'multipart/form-data' }}); 
 
-        // 2. SIMPAN DRAF PERSONEL KE ENDPOINT KHUSUS PERSONEL
         const drafPersonnels = personnelsArray.filter(p => p.temp_id);
         for (const person of drafPersonnels) {
             await api.post(`/projects/${id}/personnels`, { nama: person.nama, peran: person.peran });
         }
 
-        // 3. SIMPAN DRAF DOKUMEN KE ENDPOINT KHUSUS DOKUMEN
         if (newDocuments.length > 0) {
             const docFormData = new FormData();
             newDocuments.forEach(file => docFormData.append('dokumen_lampiran[]', file));
@@ -190,7 +186,7 @@ export default function ProjectData() {
         delete cachedProjectDetails[id];
         try { 
           sessionStorage.removeItem(`cached_project_detail_${id}`);
-          sessionStorage.removeItem('cached_projects_list');
+          sessionStorage.removeItem('cached_projects_list_v2');
         } catch {}
 
         await fetchProjectDetail(false); 
@@ -314,7 +310,7 @@ export default function ProjectData() {
       delete cachedProjectDetails[id];
       try { 
         sessionStorage.removeItem(`cached_project_detail_${id}`);
-        sessionStorage.removeItem('cached_projects_list');
+        sessionStorage.removeItem('cached_projects_list_v2');
       } catch {}
       alert("Proyek dihapus."); 
       navigate('/projects'); 
@@ -343,14 +339,15 @@ export default function ProjectData() {
     } catch (error) { alert("Gagal export PDF."); }
   };
 
-  const progressPlan = progressData.plan.toFixed(2); 
-  const progressReal = progressData.actual.toFixed(2);
+  // Format 4 angka di belakang koma (0.0000) sesuai Kolom Kumulatif ScheduleWorkData.jsx
+  const progressPlan = progressData.plan.toFixed(4); 
+  const progressReal = progressData.actual.toFixed(4);
   const rawDeviasi = progressData.deviasi;
-  const deviasi = rawDeviasi > 0 ? `+${rawDeviasi.toFixed(2)}` : rawDeviasi.toFixed(2);
+  const deviasi = rawDeviasi > 0 ? `+${rawDeviasi.toFixed(4)}` : rawDeviasi.toFixed(4);
   
   const calculatedStatus = project?.status || 'Persiapan';
   const displayStatus = (isGuest && (calculatedStatus === 'Kritis' || calculatedStatus === 'Terlambat')) ? 'Berjalan' : calculatedStatus;
-  const isActuallyDelayed = calculatedStatus === 'Kritis' || calculatedStatus === 'Terlambat';
+  const isActuallyDelayed = calculatedStatus === 'Kritis' || calculatedStatus === 'Terlambat' || rawDeviasi < 0;
 
   return (
     <div className="w-full space-y-3.5 pb-2 relative">
@@ -378,7 +375,6 @@ export default function ProjectData() {
               {isEditMode && <span className="px-2 py-0.5 ml-1 text-[9px] bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 rounded-md animate-pulse border border-blue-200 dark:border-blue-500/30 font-extrabold tracking-wider shadow-sm">DRAFT MODE</span>}
             </h1>
             
-            {/* TAMPILAN HEADER ASLI (TANPA DROPDOWN, HANYA BADGE) */}
             <div className="flex items-center flex-wrap gap-1 mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">
               <span className="truncate font-medium">{isEditMode ? (editFormData.nama_proyek || 'Memuat Data...') : (project?.nama_proyek || 'Memuat Data...')}</span>
               <span className="text-slate-400">•</span>

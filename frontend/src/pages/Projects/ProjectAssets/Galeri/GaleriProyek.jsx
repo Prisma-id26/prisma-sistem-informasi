@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import api from '../../../../api.js'; 
 import { 
-  Info, FileSpreadsheet, TrendingUp, Compass, Image as ImageIcon,
-  Loader2, AlertTriangle, Calendar, User, X, ZoomIn, Download, Camera, Filter
+  Loader2, AlertTriangle, Calendar, User, X, ZoomIn, Download, Camera, Filter,
+  ChevronLeft, ChevronRight, FolderArchive, TrendingUp
 } from 'lucide-react';
+
+import ProjectNavigation from '../../ProjectNavigation';
 
 // CACHE MEMORI: Simpan data galeri per ID Proyek
 let cachedGalleryDetails = {};
 
 export default function GaleriProyek() {
-  const navigate = useNavigate();
   const location = useLocation();
   const { id } = useParams();
 
@@ -39,6 +40,9 @@ export default function GaleriProyek() {
   const [selectedWeek, setSelectedWeek] = useState('Semua');
   const [showFilterPopup, setShowFilterPopup] = useState(false);
   const filterRef = useRef(null);
+
+  // State untuk Download Batch RAR/ZIP
+  const [isDownloadingBatch, setIsDownloadingBatch] = useState(false);
 
   // State untuk Modal Preview (Lightbox)
   const [previewPhoto, setPreviewPhoto] = useState(null);
@@ -122,15 +126,68 @@ export default function GaleriProyek() {
     ? photos 
     : photos.filter(p => parseInt(p.minggu_ke) === parseInt(selectedWeek));
 
-  // Role Access (Untuk navigasi Tab)
-  const [userRole, setUserRole] = useState('Tamu');
-  useEffect(() => {
+  // ==============================================================
+  // LOGIKA DOWNLOAD BATCH ARSIP FOTO (RAR / ZIP)
+  // ==============================================================
+  const handleDownloadBatch = async () => {
+    if (filteredPhotos.length === 0) return;
+    setIsDownloadingBatch(true);
+
     try {
-      const user = JSON.parse(localStorage.getItem('user_data'));
-      if (user) setUserRole(user.role || 'Tamu');
-    } catch {}
-  }, []);
-  const isGuest = userRole === 'Tamu';
+      const response = await api.get(`/projects/${projectId}/gallery-archive`, {
+        params: { minggu_ke: selectedWeek },
+        responseType: 'blob'
+      });
+
+      const safeName = (project?.nama_proyek || 'Proyek').replace(/[^a-zA-Z0-9]/g, '_');
+      const weekSuffix = selectedWeek === 'Semua' ? 'Semua_Minggu' : `Minggu_M${selectedWeek}`;
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Dokumentasi_${safeName}_${weekSuffix}.rar`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      alert('Gagal mengunduh paket foto laporan. Pastikan file foto tersedia di server.');
+    } finally {
+      setIsDownloadingBatch(false);
+    }
+  };
+
+  // ==============================================================
+  // LOGIKA PINDAH FOTO KIRI & KANAN PADA LIGHTBOX POP-UP
+  // ==============================================================
+  const currentPhotoIndex = previewPhoto 
+    ? filteredPhotos.findIndex(p => p.id === previewPhoto.id) 
+    : -1;
+
+  const handlePrevPhoto = (e) => {
+    if (e) e.stopPropagation();
+    if (filteredPhotos.length <= 1 || currentPhotoIndex === -1) return;
+    const prevIndex = (currentPhotoIndex - 1 + filteredPhotos.length) % filteredPhotos.length;
+    setPreviewPhoto(filteredPhotos[prevIndex]);
+  };
+
+  const handleNextPhoto = (e) => {
+    if (e) e.stopPropagation();
+    if (filteredPhotos.length <= 1 || currentPhotoIndex === -1) return;
+    const nextIndex = (currentPhotoIndex + 1) % filteredPhotos.length;
+    setPreviewPhoto(filteredPhotos[nextIndex]);
+  };
+
+  // Dukungan tombol panah kiri, kanan, dan Escape pada keyboard
+  useEffect(() => {
+    if (!previewPhoto) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'ArrowLeft') handlePrevPhoto();
+      else if (e.key === 'ArrowRight') handleNextPhoto();
+      else if (e.key === 'Escape') setPreviewPhoto(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewPhoto, currentPhotoIndex, filteredPhotos]);
 
   return (
     <div className="w-full space-y-3.5 pb-2 relative animate-fade-in flex flex-col">
@@ -170,7 +227,7 @@ export default function GaleriProyek() {
         {/* CONTAINER KONTROL: BERTUMPUK DI MOBILE & TABLET, SEJAJAR DI DESKTOP */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
           
-          {/* BOKS KIRI: KONTROL FILTER DENGAN POPUP TAG UNGU */}
+          {/* BOKS KIRI: KONTROL FILTER & DOWNLOAD BATCH RAR */}
           <div className="flex items-center justify-between sm:justify-start gap-1 bg-white dark:bg-slate-800/80 px-1.5 h-10 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-visible z-30 transition-all shrink-0">
             <div className="relative" ref={filterRef}>
               <button 
@@ -218,54 +275,28 @@ export default function GaleriProyek() {
                 </div>
               )}
             </div>
-          </div>
 
-          {/* BOKS KANAN: NAVIGASI TAB MENU (TAB GALLERY AKTIF) */}
-          <div className="flex items-center justify-between sm:justify-start gap-1 bg-white dark:bg-slate-800/80 px-1.5 h-10 rounded-xl border border-slate-200 dark:border-slate-700/60 shadow-sm overflow-x-auto custom-scrollbar z-0 shrink-0">
-            <button 
-              onClick={() => navigate(`/projects/${projectId}/data`, { state: project })} 
-              className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0"
+            <div className="w-px h-4 bg-slate-200 dark:bg-slate-700/80 mx-0.5 shrink-0"></div>
+
+            {/* TOMBOL DOWNLOAD BATCH FOTO (RAR) */}
+            <button
+              type="button"
+              onClick={handleDownloadBatch}
+              disabled={isLoading || isDownloadingBatch || filteredPhotos.length === 0}
+              className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 text-[10px] sm:text-[11px] font-bold rounded-lg transition-all whitespace-nowrap shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Download semua foto laporan dalam bentuk RAR"
             >
-              <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
-              <span className="hidden sm:inline">Data</span>
-            </button>
-
-            {!isGuest && (
-              <>
-                <button 
-                  onClick={() => navigate(`/projects/${projectId}/rab`, { state: project })} 
-                  className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
-                  <span className="hidden sm:inline">RAB</span>
-                </button>
-
-                <button 
-                  onClick={() => navigate(`/projects/${projectId}/kurva-s`, { state: project })} 
-                  className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0"
-                >
-                  <TrendingUp className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
-                  <span className="hidden sm:inline">Kurva Schedule</span>
-                </button>
-              </>
-            )}
-
-            <button 
-              onClick={() => navigate(`/projects/${projectId}/peta-gis`, { state: project })} 
-              className="flex items-center justify-center gap-1.5 h-7 px-2 sm:px-2.5 bg-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white text-[10px] sm:text-[11px] font-medium rounded-lg whitespace-nowrap shrink-0"
-            >
-              <Compass className="w-3.5 h-3.5 text-amber-500 shrink-0" /> 
-              <span className="hidden sm:inline">Peta GIS</span>
-            </button>
-
-            {/* TAB GALLERY - AKTIF (WARNA AMBER) */}
-            <button 
-              className="flex items-center justify-center gap-1.5 h-7 px-2.5 bg-amber-500 text-white dark:text-slate-950 text-[10px] sm:text-[11px] font-bold rounded-lg shadow-sm whitespace-nowrap shrink-0 cursor-default"
-            >
-              <ImageIcon className="w-3.5 h-3.5 shrink-0" /> 
-              <span className="hidden sm:inline">Gallery</span>
+              {isDownloadingBatch ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-500 shrink-0" />
+              ) : (
+                <FolderArchive className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400 shrink-0" />
+              )}
+              <span>{isDownloadingBatch ? 'Mengemas...' : `Download RAR (${filteredPhotos.length})`}</span>
             </button>
           </div>
+
+          {/* BOKS KANAN: NAVIGASI TAB MENU TERPUSAT */}
+          <ProjectNavigation projectId={projectId} project={project} activeTab="gallery" />
 
         </div>
       </div>
@@ -274,7 +305,7 @@ export default function GaleriProyek() {
       {selectedWeek !== 'Semua' && (
         <div className="flex flex-wrap gap-2 animate-fade-in -mt-2">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[10px] font-bold rounded-lg border border-purple-200 dark:border-purple-500/20 shadow-sm">
-            Menampilkan Gambar : {selectedWeek}
+            Menampilkan Gambar : Minggu M-{selectedWeek}
             <button onClick={() => setSelectedWeek('Semua')} className="hover:bg-purple-200 dark:hover:bg-purple-500/30 p-0.5 rounded-full transition-colors ml-1">
               <X className="w-3 h-3"/>
             </button>
@@ -376,17 +407,54 @@ export default function GaleriProyek() {
       )}
 
       {/* ============================================================== */}
-      {/* MODAL LIGHTBOX PRATINJAU GAMBAR PENUH                          */}
+      {/* MODAL LIGHTBOX PRATINJAU GAMBAR PENUH DENGAN ARROW KIRI & KANAN */}
       {/* ============================================================== */}
       {previewPhoto && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setPreviewPhoto(null)}>
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-sm p-4 animate-fade-in select-none" 
+          onClick={() => setPreviewPhoto(null)}
+        >
           
-          <button 
-            className="absolute top-4 right-4 md:top-6 md:right-6 p-2 bg-slate-800 hover:bg-rose-500 text-white rounded-full transition-colors z-[110]"
-            onClick={() => setPreviewPhoto(null)}
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {/* INDIKATOR NOMOR FOTO & TOMBOL TUTUP DI POJOK KANAN ATAS */}
+          <div className="fixed top-4 right-4 md:top-6 md:right-6 flex items-center gap-2.5 z-[120]">
+            {filteredPhotos.length > 1 && (
+              <span className="px-3 py-1.5 bg-slate-800/80 border border-slate-700 text-white text-xs font-mono font-bold rounded-full shadow-lg">
+                {currentPhotoIndex + 1} / {filteredPhotos.length}
+              </span>
+            )}
+            <button 
+              type="button"
+              className="p-2 bg-slate-800 hover:bg-rose-500 text-white rounded-full transition-colors shadow-xl border border-slate-700"
+              onClick={(e) => { e.stopPropagation(); setPreviewPhoto(null); }}
+              title="Tutup (Esc)"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* TOMBOL ARROW KIRI DI UJUNG BACKGROUND */}
+          {filteredPhotos.length > 1 && (
+            <button
+              type="button"
+              onClick={handlePrevPhoto}
+              className="fixed left-3 md:left-6 top-1/2 -translate-y-1/2 z-[120] p-3 md:p-3.5 bg-slate-800/80 hover:bg-amber-500 text-white hover:text-slate-950 rounded-full border border-slate-700 hover:border-amber-400 shadow-2xl transition-all active:scale-95"
+              title="Foto Sebelumnya (Panah Kiri)"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+          )}
+
+          {/* TOMBOL ARROW KANAN DI UJUNG BACKGROUND */}
+          {filteredPhotos.length > 1 && (
+            <button
+              type="button"
+              onClick={handleNextPhoto}
+              className="fixed right-3 md:right-6 top-1/2 -translate-y-1/2 z-[120] p-3 md:p-3.5 bg-slate-800/80 hover:bg-amber-500 text-white hover:text-slate-950 rounded-full border border-slate-700 hover:border-amber-400 shadow-2xl transition-all active:scale-95"
+              title="Foto Berikutnya (Panah Kanan)"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          )}
 
           <div 
             className="w-full max-w-4xl max-h-screen flex flex-col items-center justify-center relative overflow-hidden"
@@ -395,7 +463,7 @@ export default function GaleriProyek() {
             <img 
               src={getImageUrl(previewPhoto.path_file)} 
               alt={previewPhoto.nama_file}
-              className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
+              className="max-w-full max-h-[78vh] object-contain rounded-lg shadow-2xl transition-all duration-200"
             />
             
             <div className="mt-4 bg-slate-900/80 border border-slate-700/50 backdrop-blur-md px-6 py-3 rounded-2xl text-center w-full sm:w-auto max-w-full">
