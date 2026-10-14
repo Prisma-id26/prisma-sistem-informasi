@@ -68,20 +68,16 @@ export default function KurvaS({ selectedProject }) {
   const [tempFilterMode, setTempFilterMode] = useState('Mingguan');
   const filterRef = useRef(null);
 
-  // =========================================================================
-  // LOGIKA BARU: AUTO-SWITCH SKALA GRAFIK BERDASARKAN JUMLAH MINGGU
-  // =========================================================================
+  // AUTO-SWITCH SKALA GRAFIK BERDASARKAN JUMLAH MINGGU
   const prevWeekCount = useRef(0);
   useEffect(() => {
     if (localWeeks.length > 0 && prevWeekCount.current !== localWeeks.length) {
       if (localWeeks.length === 1) {
-        // Jika jadwal hanya 1 minggu (M-1), alihkan ke skala HARIAN otomatis
         setFilterMode('Harian');
         setTempFilterMode('Harian');
         setStartDateFilter(localWeeks[0].tanggal_awal ? localWeeks[0].tanggal_awal.substring(0, 10) : '');
         setEndDateFilter(localWeeks[0].tanggal_akhir ? localWeeks[0].tanggal_akhir.substring(0, 10) : '');
       } else if (localWeeks.length > 1 && prevWeekCount.current <= 1) {
-        // Jika jadwal 2 minggu ke atas, kembalikan ke skala MINGGUAN otomatis
         setFilterMode('Mingguan');
         setTempFilterMode('Mingguan');
         setStartDateFilter('');
@@ -90,7 +86,6 @@ export default function KurvaS({ selectedProject }) {
       prevWeekCount.current = localWeeks.length;
     }
   }, [localWeeks]);
-  // =========================================================================
   
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -248,6 +243,9 @@ export default function KurvaS({ selectedProject }) {
     return `Skala ${filterMode} | Seluruh Waktu`;
   };
 
+  // =========================================================================
+  // PERHITUNGAN DATA HARIAN (TITIK AKTUAL HANYA MUNCUL SAAT ADA LAPORAN)
+  // =========================================================================
   const fullChartData = useMemo(() => {
     if (!scheduleData) return [];
 
@@ -277,6 +275,7 @@ export default function KurvaS({ selectedProject }) {
     });
 
     const sortedWeeks = Object.values(weekMap).sort((a, b) => a.minggu_ke - b.minggu_ke);
+    const hasAnyWeekDates = sortedWeeks.some(w => w.tanggal_awal && w.tanggal_akhir);
 
     const dailyRealisasi = {};
     const dailyRealisasiWeeks = {};
@@ -307,7 +306,6 @@ export default function KurvaS({ selectedProject }) {
 
     const tempChartData = [];
     let cumRealisasi = 0;
-    let hasAnyReportEver = safeRealizations.length > 0;
 
     for (let i = 0; i < totalDays; i++) {
       const currDate = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate() + i);
@@ -328,7 +326,7 @@ export default function KurvaS({ selectedProject }) {
       } else if (dailyRealisasiWeeks[yyyymmdd]) {
         currentWeekNum = parseInt(dailyRealisasiWeeks[yyyymmdd]);
         if (weekMap[currentWeekNum]) matchedWeek = weekMap[currentWeekNum];
-      } else {
+      } else if (!hasAnyWeekDates) {
         const diffFromStart = Math.floor((currDate - pStart) / (1000 * 3600 * 24));
         currentWeekNum = diffFromStart >= 0 ? Math.floor(diffFromStart / 7) + 1 : 0;
       }
@@ -339,18 +337,15 @@ export default function KurvaS({ selectedProject }) {
 
       if (hasReportToday) cumRealisasi += actVal;
       
+      // PERBAIKAN INTI: Titik Aktual & Deviasi HANYA diisi jika hari tersebut ada laporan (hasReportToday)
       let finalRealisasiKumulatif = null;
       let finalDeviasi = null;
 
-      if (hasAnyReportEver) {
-          if (maxReportedDayStr && yyyymmdd > maxReportedDayStr) {
-              finalRealisasiKumulatif = null; 
-          } else {
-              finalRealisasiKumulatif = getSafeFloat(cumRealisasi);
-              if (targetKumulatifMingguan !== null) {
-                  finalDeviasi = getSafeFloat(cumRealisasi - targetKumulatifMingguan);
-              }
-          }
+      if (hasReportToday) {
+        finalRealisasiKumulatif = getSafeFloat(cumRealisasi);
+        if (targetKumulatifMingguan !== null) {
+          finalDeviasi = getSafeFloat(cumRealisasi - targetKumulatifMingguan);
+        }
       }
 
       tempChartData.push({
@@ -363,6 +358,9 @@ export default function KurvaS({ selectedProject }) {
     return tempChartData;
   }, [scheduleData]);
 
+  // =========================================================================
+  // AGREGASI SKALA HARIAN, MINGGUAN, DAN BULANAN
+  // =========================================================================
   const chartData = useMemo(() => {
     if (fullChartData.length === 0) return [];
     let filtered = fullChartData;
@@ -414,7 +412,8 @@ export default function KurvaS({ selectedProject }) {
           <p className="font-extrabold text-slate-800 dark:text-white mb-2 pb-2 border-b border-slate-200 dark:border-slate-700">{dataInfo.tooltipLabel}</p>
           {payload.map((entry, index) => {
             if (entry.value === undefined || entry.value === null) return null; 
-            let valText = `${getSafeFloat(entry.value).toFixed(2)}%`;
+            const num = getSafeFloat(entry.value);
+            let valText = `${Number.isInteger(num) ? num.toFixed(2) : parseFloat(num.toFixed(4))}%`;
             if (entry.dataKey === 'deviasiKumulatif') valText = entry.value > 0 ? `+${valText}` : valText;
             return (
               <div key={index} className="flex justify-between items-center gap-6 font-medium mb-1.5 last:mb-0">
@@ -504,9 +503,10 @@ export default function KurvaS({ selectedProject }) {
                       <XAxis dataKey="xAxisLabel" stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} className="dark:stroke-slate-400" />
                       <YAxis stroke="#64748b" fontSize={11} domain={['auto', 100]} unit="%" tickLine={false} axisLine={false} className="dark:stroke-slate-400" />
                       <Tooltip content={<CustomTooltip />} />
+                      {/* connectNulls={true} membuat garis melompati tanggal/minggu/bulan yang kosong tanpa menggambar titik di area kosong */}
                       {showPlanCurve && <Line type="monotone" dataKey="rencanaKumulatif" name="Target Rencana" stroke="#3b82f6" strokeWidth={3} dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={true} />}
-                      {showActualCurve && <Line type="monotone" dataKey="realisasiKumulatif" name="Aktual Kumulatif" stroke="#10b981" strokeWidth={3} dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={false} />}
-                      {showDeviationCurve && <Line type="monotone" dataKey="deviasiKumulatif" name="Deviasi" stroke="#f59e0b" strokeWidth={3} strokeDasharray="5 5" dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={false} />}
+                      {showActualCurve && <Line type="monotone" dataKey="realisasiKumulatif" name="Aktual Kumulatif" stroke="#10b981" strokeWidth={3} dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={true} />}
+                      {showDeviationCurve && <Line type="monotone" dataKey="deviasiKumulatif" name="Deviasi" stroke="#f59e0b" strokeWidth={3} strokeDasharray="5 5" dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={true} />}
                     </LineChart>
                   </ResponsiveContainer>
                 )}
