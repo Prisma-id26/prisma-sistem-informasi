@@ -4,13 +4,11 @@ import api from '../../api';
 import { 
   Search, Eye, Plus, FileSpreadsheet, Calendar, MapPin, 
   UserCheck, ListTodo, Users, 
-  Wrench, X, Loader2, AlertTriangle, CheckCircle2, Clock, Filter, Edit3, Trash2, FileBox, Info, Sparkles, ChevronLeft, ChevronRight
+  Wrench, X, Loader2, AlertTriangle, CheckCircle2, Clock, Filter, Edit3, Trash2, FileBox, Sparkles, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
-// CACHE MEMORI: Data laporan langsung muncul instan saat buka tab
 let cachedLaporan = null;
 
-// Helper untuk mengambil ID unik user login saat ini
 const getCurrentUserKey = () => {
   try {
     const userDataStr = localStorage.getItem('user_data');
@@ -25,7 +23,6 @@ const getCurrentUserKey = () => {
 export default function LaporanList() {
   const navigate = useNavigate();
   
-  // Baca cache memori atau sessionStorage duluan agar render dalam 0ms
   const [laporanList, setLaporanList] = useState(() => {
     if (cachedLaporan && cachedLaporan.length > 0) return cachedLaporan;
     try {
@@ -48,7 +45,6 @@ export default function LaporanList() {
     document.title = "Prisma Group - Daftar Laporan";
   }, []);
 
-  // State daftar ID laporan yang sudah pernah dibuka oleh akun yang login saat ini
   const [viewedReports, setViewedReports] = useState(() => {
     try {
       const key = `viewed_reports_${getCurrentUserKey()}`;
@@ -57,24 +53,18 @@ export default function LaporanList() {
     } catch { return []; }
   });
   
-  // SEARCH & FILTER
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilter, setShowFilter] = useState(false);
   const [filters, setFilters] = useState({ status: 'Semua', startDate: '', endDate: '' });
   const filterRef = useRef(null);
 
-  // EDIT & BATCH DELETE MODE
   const [isEditMode, setIsEditMode] = useState(false);
   const [deleteConfig, setDeleteConfig] = useState({ show: false, id: null, name: '' });
   const [stagedDeletions, setStagedDeletions] = useState([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-  // HAK AKSES
   const [userRole, setUserRole] = useState('Tamu');
 
-  // ==========================================
-  // STATE PAGINASI
-  // ==========================================
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -91,7 +81,6 @@ export default function LaporanList() {
   const canCreateData = ['Administrator', 'Team Leader', 'Pengawas Lapangan'].includes(userRole);
   const isGuest = userRole === 'Tamu';
 
-  // Deteksi status "NEW" (dibuat <= 3 hari & belum pernah dibuka oleh akun ini)
   const isReportNew = (lap) => {
     const createdAt = lap.originalData?.created_at || lap.created_at;
     if (!createdAt) return false;
@@ -101,7 +90,6 @@ export default function LaporanList() {
     return isRecent && !isAlreadyViewed;
   };
 
-  // Tandai laporan sudah dibaca untuk akun ini, lalu buka detailnya
   const handleOpenReportData = (laporan) => {
     const userKey = getCurrentUserKey();
     const updated = Array.from(new Set([...viewedReports, laporan.id]));
@@ -220,9 +208,6 @@ export default function LaporanList() {
     }
   };
 
-  // ==========================================
-  // PENGURUTAN, FILTERING & PAGINATION LOGIC
-  // ==========================================
   const filteredLaporan = laporanList.filter(l => {
     const query = searchQuery.toLowerCase();
     const matchSearch = 
@@ -245,7 +230,6 @@ export default function LaporanList() {
 
   const visibleLaporan = filteredLaporan.filter(l => !stagedDeletions.includes(l.id));
 
-  // Pengurutan: Laporan Baru (NEW) di paling atas, sisanya urut berdasarkan tanggal dibuat (terbaru ke terlama)
   const sortedLaporan = [...visibleLaporan].sort((a, b) => {
     const isNewA = isReportNew(a);
     const isNewB = isReportNew(b);
@@ -253,18 +237,15 @@ export default function LaporanList() {
     if (isNewA && !isNewB) return -1;
     if (!isNewA && isNewB) return 1;
 
-    // Jika sama-sama baru atau lama, urutkan berdasarkan tanggal laporan (desc)
     const dateA = new Date(a.tanggalPengawasan || a.created_at || 0);
     const dateB = new Date(b.tanggalPengawasan || b.created_at || 0);
     return dateB - dateA;
   });
 
-  // Hitung Paginasi
   const totalPages = Math.ceil(sortedLaporan.length / itemsPerPage) || 1;
   const startIndex = (currentPage - 1) * itemsPerPage;
   const currentItems = sortedLaporan.slice(startIndex, startIndex + itemsPerPage);
 
-  // Kembali ke halaman 1 jika user mengetik pencarian
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, filters]);
@@ -310,7 +291,6 @@ export default function LaporanList() {
         
         <div className="flex flex-wrap md:flex-nowrap items-center gap-2 sm:gap-3 w-full md:w-auto">
           
-          {/* SEARCH INPUT */}
           <div className="relative flex-1 md:flex-none min-w-[140px] shadow-sm">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input 
@@ -323,7 +303,6 @@ export default function LaporanList() {
             />
           </div>
 
-          {/* FILTER BUTTON (AKSEN UNGU) */}
           <div className="relative" ref={filterRef}>
             <button 
               disabled={isLoading && laporanList.length === 0}
@@ -401,21 +380,19 @@ export default function LaporanList() {
                   </button>
                   <button onClick={handleSelesaiEdit} disabled={isSavingEdit || isLoading} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 md:py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm whitespace-nowrap disabled:opacity-50 border border-rose-700 disabled:cursor-not-allowed">
                     {isSavingEdit ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <CheckCircle2 className="w-4 h-4 text-white" />} 
-                    {isSavingEdit ? 'Menyimpan...' : 'Eksekusi Hapus'}
+                    {isSavingEdit ? 'Menyimpan...' : 'Hapus'}
                   </button>
                 </>
               ) : (
-                /* EDIT BUTTON (AKSEN BIRU) */
                 <button 
                   onClick={() => setIsEditMode(true)} 
                   disabled={isLoading && laporanList.length === 0} 
                   className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 md:py-2 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-500/10 border border-slate-200 dark:border-slate-700/80 hover:border-blue-300 dark:hover:border-blue-500/40 shadow-sm text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 text-xs font-bold rounded-xl transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Edit3 className="w-4 h-4 text-blue-500 dark:text-blue-400" /> Mode Edit
+                  <Edit3 className="w-4 h-4 text-blue-500 dark:text-blue-400" /> Edit
                 </button>
               )}
 
-              {/* BUAT LAPORAN (AKSEN AMBER) */}
               <button 
                 onClick={() => navigate('/laporan/input')} 
                 disabled={isEditMode || (isLoading && laporanList.length === 0)} 
@@ -428,7 +405,6 @@ export default function LaporanList() {
         </div>
       </div>
 
-      {/* TAGS FILTER AKTIF */}
       {(filters.status !== 'Semua' || filters.startDate || filters.endDate) && (
         <div className="flex flex-wrap gap-2 animate-fade-in -mt-2">
           {filters.status !== 'Semua' && (
@@ -452,7 +428,6 @@ export default function LaporanList() {
         </div>
       )}
 
-      {/* KONTEN TABEL */}
       {isLoading && laporanList.length === 0 ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh] w-full bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl shadow-sm animate-fade-in">
           <Loader2 className="w-10 h-10 text-amber-500 animate-spin mb-4" />
@@ -474,8 +449,6 @@ export default function LaporanList() {
                     <div className="flex items-start gap-3">
                       <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center font-bold text-slate-500 shrink-0 overflow-hidden shadow-sm relative">
                         <FileSpreadsheet className="w-6 h-6 text-amber-500" />
-                        
-                        {/* TITIK MERAH NEW PADA AVATAR UNTUK AKUN INI */}
                         {showNewBadge && !isEditMode && (
                           <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full border-2 border-white dark:border-slate-800 animate-pulse"></span>
                         )}
@@ -483,13 +456,11 @@ export default function LaporanList() {
                       
                       <div className="flex-1 min-w-0 pr-2">
                         <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-                          {/* BADGE NEW KHUSUS AKUN INI */}
                           {showNewBadge && !isEditMode && (
                             <span className="px-1.5 py-0.5 text-[8px] font-black bg-rose-500 text-white rounded uppercase tracking-wider animate-pulse flex items-center gap-0.5 shadow-sm">
                               <Sparkles className="w-2.5 h-2.5" /> NEW
                             </span>
                           )}
-
                           <span className={`px-2 py-0.5 text-[9px] font-bold rounded border inline-block ${getStatusStyles(finalStatus)}`}>
                             {getStatusText(finalStatus)}
                           </span>
@@ -561,16 +532,17 @@ export default function LaporanList() {
             )}
           </div>
 
-          {/* TAMPILAN DESKTOP */}
+          {/* TAMPILAN DESKTOP: FULL FILL TABLE 5 KOLOM SEPERTI PROJECTLIST */}
           <div className="hidden md:block bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl overflow-hidden shadow-sm dark:shadow-lg backdrop-blur-sm animate-fade-in">
             <div className="overflow-x-auto custom-scrollbar">
-              <table className="w-full text-left border-collapse table-fixed min-w-[900px]">
+              <table className="w-full text-left border-collapse table-fixed min-w-[1000px] h-full">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700/60 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    <th className="p-4 w-[35%]">Info Proyek & Laporan</th>
-                    <th className="p-4 w-[20%]">Pengawas & Tanggal</th>
-                    <th className="p-4 w-[25%]">Kegiatan Lapangan</th>
-                    <th className="p-4 text-center w-[15%]">Aksi</th>
+                    <th className="p-4 w-[25%]">Info Proyek & Laporan</th>
+                    <th className="p-4 w-[15%]">Pengawas & Tanggal</th>
+                    <th className="p-4 w-[25%] text-center">Kegiatan Lapangan</th>
+                    <th className="p-4 w-[20%] text-center">Kebutuhan Lapangan</th>
+                    <th className="p-4 w-[15%] text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50 text-xs text-slate-700 dark:text-slate-300">
@@ -582,54 +554,57 @@ export default function LaporanList() {
                       const showNewBadge = isReportNew(laporan);
 
                       return (
-                        <tr key={laporan.id} className={`transition-all group ${isEditMode ? 'hover:bg-rose-50/30 dark:hover:bg-rose-900/10' : 'hover:bg-slate-50 dark:hover:bg-slate-700/30'}`}>
+                        <tr key={laporan.id} className={`h-px transition-all group ${isEditMode ? 'hover:bg-rose-50/30 dark:hover:bg-rose-900/10' : 'hover:bg-slate-50 dark:hover:bg-slate-700/30'}`}>
                           
-                          <td className="p-4 align-top flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center font-bold text-slate-500 shrink-0 overflow-hidden shadow-sm relative">
-                              <FileSpreadsheet className="w-5 h-5 text-amber-500" />
-                              
-                              {/* TITIK MERAH NEW PADA AVATAR UNTUK AKUN INI */}
-                              {showNewBadge && !isEditMode && (
-                                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border border-white dark:border-slate-800 animate-pulse"></span>
-                              )}
-                            </div>
-                            
-                            <div>
-                              <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-                                {/* BADGE TEKS NEW (HILANG SETELAH DIKLIK BUKA DATA OLEH AKUN INI) */}
+                          {/* KOLOM 1: Info Proyek & Laporan */}
+                          <td className="p-4 align-top h-full">
+                            <div className="flex items-start gap-3 h-full">
+                              <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center font-bold text-slate-500 shrink-0 overflow-hidden shadow-sm relative">
+                                <FileSpreadsheet className="w-5 h-5 text-amber-500" />
                                 {showNewBadge && !isEditMode && (
-                                  <span className="px-1.5 py-0.5 text-[8px] font-black bg-rose-500 text-white rounded uppercase tracking-wider animate-pulse flex items-center gap-0.5 shadow-sm">
-                                    <Sparkles className="w-2.5 h-2.5" /> NEW
-                                  </span>
+                                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border border-white dark:border-slate-800 animate-pulse"></span>
                                 )}
-
-                                <span className={`px-2 py-0.5 text-[9px] font-bold rounded border inline-block ${getStatusStyles(finalStatus)}`}>
-                                  {getStatusText(finalStatus)}
-                                </span>
-                                <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded text-[9px] font-bold border border-slate-200 dark:border-slate-700">
-                                  {laporan.nomorLaporan}
-                                </span>
                               </div>
-                              <div className="font-bold text-slate-800 dark:text-white text-[13px] leading-snug line-clamp-2 pr-4">{laporan.namaProyek}</div>
-                              <div className="flex items-center mt-1 text-[10px] text-slate-500"><MapPin className="w-3 h-3 mr-0.5 text-rose-500"/><span className="line-clamp-1">{laporan.lokasi}</span></div>
+                              
+                              <div className="flex flex-col h-full justify-start">
+                                <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                                  {showNewBadge && !isEditMode && (
+                                    <span className="px-1.5 py-0.5 text-[8px] font-black bg-rose-500 text-white rounded uppercase tracking-wider animate-pulse flex items-center gap-0.5 shadow-sm">
+                                      <Sparkles className="w-2.5 h-2.5" /> NEW
+                                    </span>
+                                  )}
+                                  <span className={`px-2 py-0.5 text-[9px] font-bold rounded border inline-block ${getStatusStyles(finalStatus)}`}>
+                                    {getStatusText(finalStatus)}
+                                  </span>
+                                  <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded text-[9px] font-bold border border-slate-200 dark:border-slate-700">
+                                    {laporan.nomorLaporan}
+                                  </span>
+                                </div>
+                                <div className="font-bold text-slate-800 dark:text-white text-[13px] leading-snug line-clamp-2 pr-4">{laporan.namaProyek}</div>
+                                <div className="flex items-center mt-1 text-[10px] text-slate-500"><MapPin className="w-3 h-3 mr-0.5 text-rose-500"/><span className="line-clamp-1">{laporan.lokasi}</span></div>
+                              </div>
                             </div>
                           </td>
 
-                          <td className="p-4 align-top space-y-2">
-                            <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-700 dark:text-slate-300">
-                              <UserCheck className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                              <span className="truncate" title={laporan.namaPengawas}>{laporan.namaPengawas}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-600 dark:text-slate-400 mt-1 border-t border-slate-100 dark:border-slate-700/60 pt-1.5">
-                              <Calendar className="w-3.5 h-3.5 text-amber-500" />
-                              <span>{laporan.tanggalPengawasan}</span>
+                          {/* KOLOM 2: Pengawas & Tanggal */}
+                          <td className="p-4 align-top h-full border-l border-slate-100 dark:border-slate-700/30">
+                            <div className="flex flex-col justify-start h-full space-y-2">
+                              <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                                <UserCheck className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                <span className="truncate" title={laporan.namaPengawas}>{laporan.namaPengawas}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-600 dark:text-slate-400 mt-1 border-t border-slate-100 dark:border-slate-700/60 pt-1.5">
+                                <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                                <span>{laporan.tanggalPengawasan}</span>
+                              </div>
                             </div>
                           </td>
 
-                          <td className="p-4 align-top">
-                            <div className="bg-slate-50 dark:bg-slate-900/40 p-2 rounded-xl border border-slate-100 dark:border-slate-700/40 flex items-start gap-2 mb-2">
+                          {/* KOLOM 3: Kegiatan Lapangan */}
+                          <td className="p-4 align-top h-full border-l border-slate-100 dark:border-slate-700/30">
+                            <div className="bg-slate-50 dark:bg-slate-900/40 p-2 rounded-xl border border-slate-100 dark:border-slate-700/40 flex items-start gap-2 h-full flex-col sm:flex-row">
                               <ListTodo className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                              <div>
+                              <div className="flex-1 w-full text-left">
                                 <p className="font-medium text-slate-700 dark:text-slate-200 text-[11px] leading-relaxed line-clamp-2">
                                   {laporan.kegiatan[0] || 'Tidak ada uraian kegiatan'}
                                 </p>
@@ -640,44 +615,48 @@ export default function LaporanList() {
                                 )}
                               </div>
                             </div>
-                            
-                            <div className="grid grid-cols-2 gap-2 mt-2">
-                              <div className="bg-emerald-50 dark:bg-emerald-900/20 p-1.5 rounded-lg border border-emerald-100 dark:border-emerald-800/30 flex flex-col justify-center items-center text-center">
-                                <span className="text-[8px] text-emerald-600 dark:text-emerald-400 uppercase font-bold tracking-wider">Personil</span>
-                                <span className="font-mono text-[10px] font-bold text-emerald-700 dark:text-emerald-300">{totalPersonil} Orang</span>
+                          </td>
+
+                          {/* KOLOM 4: Kebutuhan Lapangan (Personil & Alat) */}
+                          <td className="p-4 align-top h-full border-l border-slate-100 dark:border-slate-700/30">
+                            <div className="grid grid-cols-2 gap-2 h-full">
+                              <div className="bg-emerald-50 dark:bg-emerald-900/20 p-2 rounded-lg border border-emerald-100 dark:border-emerald-800/30 flex flex-col justify-center items-center text-center h-full">
+                                <span className="text-[8px] text-emerald-600 dark:text-emerald-400 uppercase font-bold tracking-wider mb-0.5">Personil</span>
+                                <span className="font-mono text-[11px] font-bold text-emerald-700 dark:text-emerald-300">{totalPersonil} <span className="text-[9px] font-sans font-normal opacity-80">Org</span></span>
                               </div>
-                              <div className="bg-blue-50 dark:bg-blue-900/20 p-1.5 rounded-lg border border-blue-100 dark:border-blue-800/30 flex flex-col justify-center items-center text-center">
-                                <span className="text-[8px] text-blue-600 dark:text-blue-400 uppercase font-bold tracking-wider">Alat</span>
-                                <span className="font-mono text-[10px] font-bold text-blue-700 dark:text-blue-300">{totalAlat} Unit</span>
+                              <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg border border-blue-100 dark:border-blue-800/30 flex flex-col justify-center items-center text-center h-full">
+                                <span className="text-[8px] text-blue-600 dark:text-blue-400 uppercase font-bold tracking-wider mb-0.5">Alat</span>
+                                <span className="font-mono text-[11px] font-bold text-blue-700 dark:text-blue-300">{totalAlat} <span className="text-[9px] font-sans font-normal opacity-80">Unit</span></span>
                               </div>
                             </div>
                           </td>
 
-                          <td className="p-4 align-middle">
-                            {isEditMode ? (
-                              <div className="flex flex-col gap-2">
+                          {/* KOLOM 5: Aksi */}
+                          <td className="p-4 align-middle h-full text-center border-l border-slate-100 dark:border-slate-700/30">
+                            <div className="flex flex-col justify-center h-full gap-2 px-2">
+                              {isEditMode ? (
                                 <button 
                                   onClick={(e) => confirmDelete(e, laporan.id, laporan.nomorLaporan)} 
-                                  className="px-3.5 py-2 w-full justify-center bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white dark:bg-rose-500/10 dark:hover:bg-rose-500 dark:text-rose-400 dark:border-rose-500/20 text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-sm border border-rose-200 animate-fade-in"
+                                  className="px-3.5 py-2 w-full justify-center bg-rose-50 hover:bg-rose-500 text-rose-600 hover:text-white dark:bg-rose-500/10 dark:hover:bg-rose-500 dark:text-rose-400 dark:border-rose-500/20 text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-sm border border-rose-200 animate-fade-in"
                                 >
                                   <Trash2 className="w-3.5 h-3.5 text-rose-500 group-hover:text-white" /> Hapus
                                 </button>
-                              </div>
-                            ) : (
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); handleOpenReportData(laporan); }} 
-                                className="px-3.5 py-2 w-full justify-center bg-white dark:bg-slate-700/80 hover:bg-amber-50 dark:hover:bg-amber-500/20 text-slate-700 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400 text-xs font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-sm border border-slate-200 dark:border-slate-600 animate-fade-in"
-                              >
-                                <Eye className="w-3.5 h-3.5 text-amber-500" /> Buka Data
-                              </button>
-                            )}
+                              ) : (
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); handleOpenReportData(laporan); }} 
+                                  className="px-3.5 py-2 w-full justify-center bg-white dark:bg-slate-700/80 hover:bg-amber-50 dark:hover:bg-amber-500/20 text-slate-700 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400 text-[11px] font-bold rounded-xl transition-all inline-flex items-center gap-1.5 shadow-sm border border-slate-200 dark:border-slate-600 animate-fade-in"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-amber-500" /> Buka Data
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
                     })
                   ) : (
                     <tr>
-                      <td colSpan="4" className="p-8 text-center text-slate-500 dark:text-slate-400">
+                      <td colSpan="5" className="p-8 text-center text-slate-500 dark:text-slate-400">
                         <FileBox className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
                         <p className="text-sm font-medium">Data tidak ditemukan.</p>
                         <p className="text-[10px] mt-1 opacity-70">Belum ada laporan atau tidak cocok dengan filter pencarian.</p>
@@ -755,7 +734,7 @@ export default function LaporanList() {
             </div>
             <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">Hapus Laporan?</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
-              Anda akan menandai laporan <strong>{deleteConfig.name}</strong> untuk dihapus. Tekan "Eksekusi Hapus" jika sudah selesai memilih.
+              Anda akan menandai laporan <strong>{deleteConfig.name}</strong> untuk dihapus. Tekan "Hapus" jika sudah selesai memilih.
             </p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfig({ show: false, id: null, name: '' })} className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-xs">Batal</button>

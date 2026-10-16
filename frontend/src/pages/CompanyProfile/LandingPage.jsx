@@ -3,7 +3,7 @@ import { ShieldCheck } from 'lucide-react';
 
 export default function LandingPage({ profile }) {
   const title = profile?.hero_title || 'Pantau Progres & Pengawasan Lapangan Secara Real-Time';
-  const subtitle = profile?.hero_subtitle || 'Kami menyediakan layanan manajemen konstruksi dan pengawasan teknis dengan platform digital cerdas.';
+  const subtitle = profile?.hero_subtitle || 'Kelola volume progres, laporan harian, matriks Kurva S, hingga pemetaan GIS lokasi proyek secara terpusat, aman, dan presisi.';
   const btnText = profile?.btn_text || 'Sistem Manajemen Proyek Terpadu';
   const heroImage = profile?.hero_image ? `${import.meta.env.VITE_API_URL.replace('/api', '')}/storage/${profile.hero_image}` : null;
 
@@ -15,7 +15,8 @@ export default function LandingPage({ profile }) {
       <div className={`container mx-auto px-6 md:px-12 relative z-10 flex flex-col ${heroImage ? 'lg:flex-row' : ''} items-center gap-12`}>
         
         <div className={`animate-fade-in ${heroImage ? 'lg:w-1/2 text-center lg:text-left' : 'text-center max-w-5xl mx-auto'}`}>
-          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-widest shadow-sm mb-6 ${heroImage ? 'mx-auto lg:mx-0' : ''}`}>
+          {/* BADGE: Menggunakan warna Hijau (Emerald) */}
+          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold uppercase tracking-widest shadow-sm mb-6 ${heroImage ? 'mx-auto lg:mx-0' : ''}`}>
             <ShieldCheck className="w-4 h-4" /> {btnText}
           </div>
           
@@ -23,7 +24,8 @@ export default function LandingPage({ profile }) {
             {title}
           </h1>
           
-          <p className={`text-base md:text-xl text-slate-600 dark:text-slate-400 leading-relaxed font-medium mb-10 ${heroImage ? 'max-w-xl mx-auto lg:mx-0' : 'max-w-3xl mx-auto'}`}>
+          {/* SUBTITLE: Menggunakan warna Amber */}
+          <p className={`text-base md:text-xl text-amber-600 dark:text-amber-500 leading-relaxed font-semibold mb-10 ${heroImage ? 'max-w-xl mx-auto lg:mx-0' : 'max-w-3xl mx-auto'}`}>
             {subtitle}
           </p>
 

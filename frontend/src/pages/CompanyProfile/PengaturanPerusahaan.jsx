@@ -36,7 +36,7 @@ export default function PengaturanPerusahaan() {
           hero_title: resPublic.data.profile.hero_title || '',
           hero_subtitle: resPublic.data.profile.hero_subtitle || '',
           btn_text: resPublic.data.profile.btn_text || '',
-          hero_image: null // Reset file input
+          hero_image: null 
         });
         setContactData({
           email: resPublic.data.profile.email || '',
@@ -166,7 +166,8 @@ export default function PengaturanPerusahaan() {
       
       <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-6 flex flex-col md:flex-row items-center gap-5 shadow-sm backdrop-blur-sm">
         <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-700/50 shadow-inner shrink-0">
-          <img src="/PRISMA.PNG" alt="Logo Prisma" className="h-16 w-auto object-contain drop-shadow-sm" />
+          <img src="/PRISMA.PNG" alt="Logo Prisma" className="h-16 w-auto object-contain drop-shadow-sm dark:hidden" />
+          <img src="/PRISMA_NEGATIF.PNG" alt="Logo Prisma" className="h-16 w-auto object-contain drop-shadow-sm hidden dark:block" />
         </div>
         <div className="text-center md:text-left">
           <h1 className="text-2xl font-extrabold text-slate-800 dark:text-white tracking-wide">Pengaturan Profil Perusahaan</h1>
@@ -351,9 +352,7 @@ export default function PengaturanPerusahaan() {
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* MODAL: TAMBAH LAYANAN */}
-      {/* ========================================================= */}
+      {/* --- MODAL: TAMBAH LAYANAN --- */}
       {isServiceModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700">
@@ -385,9 +384,7 @@ export default function PengaturanPerusahaan() {
         </div>
       )}
 
-      {/* ========================================================= */}
-      {/* MODAL: TAMBAH EVENT */}
-      {/* ========================================================= */}
+      {/* --- MODAL: TAMBAH EVENT --- */}
       {isEventModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700">

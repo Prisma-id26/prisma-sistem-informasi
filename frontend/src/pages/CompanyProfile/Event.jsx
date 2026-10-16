@@ -32,7 +32,7 @@ export default function Event({ events = [] }) {
                 
                 <div className="flex flex-col justify-center">
                   <div className="flex items-center gap-3 mb-3">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-500/10 px-2 py-1 rounded-md">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-500/10 px-2 py-1 rounded-md border border-amber-200 dark:border-amber-500/30 shadow-sm">
                       {item.category}
                     </span>
                     <span className="text-xs text-black/60 dark:text-slate-400 font-medium flex items-center gap-1">

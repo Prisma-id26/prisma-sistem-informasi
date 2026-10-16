@@ -3,7 +3,7 @@ import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import api from '../../api';
 import { 
   Download, Edit3, Copy, Clock, Wrench, Users,
-  CheckCircle2, Save, X, Loader2, Trash2, FileSpreadsheet, FileText 
+  CheckCircle2, Save, X, Loader2, Trash2, FileSpreadsheet, FileText, AlertTriangle 
 } from 'lucide-react';
 
 import InfoPengawasan from './IsiLaporan/InfoPengawasan';
@@ -12,7 +12,6 @@ import KegiatanGeografis from './IsiLaporan/KegiatanGeografis';
 import { PersonilCard, PeralatanCard } from './IsiLaporan/PersonilAlatLaporan';
 import { FotoCard, DokumenCard } from './IsiLaporan/LampiranDokumentasi';
 
-// CACHE MEMORI: Simpan data laporan agar instan saat dibuka kedua kalinya
 let cachedReportDetails = {};
 
 export default function LaporanData() {
@@ -20,7 +19,6 @@ export default function LaporanData() {
   const location = useLocation();
   const { id } = useParams(); 
 
-  // Ambil data awal dari memory cache, sessionStorage, atau router state
   const getInitialReport = () => {
     if (cachedReportDetails[id]) return cachedReportDetails[id];
     try {
@@ -35,7 +33,6 @@ export default function LaporanData() {
 
   const [reportData, setReportData] = useState(initialData);
   
-  // Jika data sudah ada di cache, jangan tampilkan layar loading penuh
   const hasCachedFullData = Boolean(reportData && reportData.tanggal);
   const [isLoading, setIsLoading] = useState(!hasCachedFullData);
   
@@ -83,7 +80,6 @@ export default function LaporanData() {
       cachedReportDetails[reportId] = data;
       try { sessionStorage.setItem(`cached_report_detail_${reportId}`, JSON.stringify(data)); } catch {}
 
-      // Tarik data Schedule/RAB secara background untuk persiapan Edit Mode
       if (data.project_id) {
          setIsLoadingRab(true);
          const schedRes = await api.get(`/projects/${data.project_id}/schedules`);
@@ -297,8 +293,8 @@ export default function LaporanData() {
   const savePersonil = (e) => {
     e.preventDefault();
     const newArr = [...editForm.personnels];
-    if (personilForm.index !== null) newArr[personilForm.index] = { id: personilForm.id, peran: personilForm.peran, jumlah: personilForm.jumlah };
-    else newArr.push({ id: personilForm.id, peran: personilForm.peran, jumlah: personilForm.jumlah });
+    if (personilForm.index !== null) newArr[personilForm.index] = { id: personilForm.id, peran: personilForm.peran, jumlah: personilForm.jumlah, is_draft: true };
+    else newArr.push({ id: personilForm.id, peran: personilForm.peran, jumlah: personilForm.jumlah, is_draft: true });
     setEditForm({...editForm, personnels: newArr});
     setShowPersonilModal(false);
   };
@@ -312,8 +308,8 @@ export default function LaporanData() {
   const savePeralatan = (e) => {
     e.preventDefault();
     const newArr = [...editForm.equipments];
-    if (peralatanForm.index !== null) newArr[peralatanForm.index] = { id: peralatanForm.id, nama_alat: peralatanForm.namaAlat, jumlah: peralatanForm.jumlah };
-    else newArr.push({ id: peralatanForm.id, nama_alat: peralatanForm.namaAlat, jumlah: peralatanForm.jumlah });
+    if (peralatanForm.index !== null) newArr[peralatanForm.index] = { id: peralatanForm.id, nama_alat: peralatanForm.namaAlat, jumlah: peralatanForm.jumlah, is_draft: true };
+    else newArr.push({ id: peralatanForm.id, nama_alat: peralatanForm.namaAlat, jumlah: peralatanForm.jumlah, is_draft: true });
     setEditForm({...editForm, equipments: newArr});
     setShowPeralatanModal(false);
   };
@@ -594,32 +590,11 @@ export default function LaporanData() {
         availableWeeks={availableWeeks} 
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6 items-stretch">
-        <CuacaLapangan isEditMode={isEditMode} reportData={reportData} editForm={editForm} setEditForm={setEditForm} />
-        
-        <div className={`bg-white dark:bg-slate-800/60 border ${isEditMode ? 'border-blue-400/60 dark:border-blue-500/50 ring-2 ring-blue-500/10' : 'border-slate-200 dark:border-slate-700/60 shadow-sm'} p-4 md:p-5 rounded-2xl flex flex-col transition-all relative backdrop-blur-sm h-full`}>
-           <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3 mb-3 shrink-0">
-             <h3 className="text-sm font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wider flex items-center gap-2">
-               <FileText className="w-4 h-4" /> Catatan Tambahan Laporan
-             </h3>
-           </div>
-           {isEditMode ? (
-             <textarea
-               name="catatan"
-               value={editForm.catatan}
-               onChange={(e) => setEditForm({...editForm, catatan: e.target.value})}
-               placeholder="Tuliskan catatan khusus, kendala lapangan, atau instruksi pengawas di sini..."
-               className="w-full flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-3 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none shadow-inner custom-scrollbar transition-colors"
-             />
-           ) : (
-             <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50 text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed flex-1 mt-3 shadow-sm font-medium">
-               {reportData.catatan || 'Tidak ada catatan tambahan.'}
-             </div>
-           )}
-        </div>
-      </div>
+      {/* Bagian Cuaca diubah agar memenuhi lebar jika Catatan masuk ke dalam InfoPengawasan, 
+          atau tetap sejajar tergantung kebutuhan (di sini menggunakan lebar penuh) */}
+      <CuacaLapangan isEditMode={isEditMode} reportData={reportData} editForm={editForm} setEditForm={setEditForm} />
 
-      <div className="w-full">
+      <div className="w-full mt-2">
         <KegiatanGeografis 
           isEditMode={isEditMode} reportData={reportData} editForm={editForm} setEditForm={setEditForm}
           rabOptions={rabOptions} isLoadingRab={isLoadingRab} mingguKe={currentMingguKe}
@@ -629,7 +604,7 @@ export default function LaporanData() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6 items-stretch mt-2">
         <PersonilCard 
           isEditMode={isEditMode} reportData={reportData} editForm={editForm} setEditForm={setEditForm} 
           openPersonilModal={openPersonilModal} 
@@ -640,7 +615,7 @@ export default function LaporanData() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6 items-stretch mt-2">
         <FotoCard 
           isEditMode={isEditMode} reportData={reportData} handleUploadFile={handleUploadFile} 
           handleDeleteFile={handleDeleteFile} getDocUrl={getDocUrl}

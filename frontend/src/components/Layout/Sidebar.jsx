@@ -200,7 +200,9 @@ export default function Sidebar() {
                 className="w-10 h-10 flex items-center justify-center shrink-0 cursor-pointer overflow-hidden transition-all bg-transparent drop-shadow-md group-hover:scale-105"
                 title="PRISMA JASA KONSULINDO"
               >
-                <img src="/PRISMA.PNG" alt="Logo Prisma" className="w-full h-full object-contain" />
+                {/* LOGO SIDEBAR: Switch otomatis berdasarkan Dark Mode */}
+                <img src="/PRISMA.PNG" alt="Logo Prisma Light" className="w-full h-full object-contain dark:hidden" />
+                <img src="/PRISMA_NEGATIF.PNG" alt="Logo Prisma Dark" className="w-full h-full object-contain hidden dark:block" />
               </div>
 
               {!isCollapsed && (

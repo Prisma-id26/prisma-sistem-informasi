@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Lock, Mail, Eye, EyeOff, Building2, ShieldCheck, AlertCircle, MailOpen } from 'lucide-react';
+import { Lock, Mail, Eye, EyeOff, ShieldCheck, AlertCircle, MailOpen } from 'lucide-react';
 import api from '../../api';
 
 export default function Login({ onLoginSuccess }) {
@@ -42,21 +42,35 @@ export default function Login({ onLoginSuccess }) {
         <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] dark:bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:24px_24px] opacity-30 dark:opacity-20 transition-colors" />
 
         <div className="relative z-10 flex items-center gap-3">
-          <img src="/PRISMA.PNG" alt="Prisma Group Logo" className="h-12 w-auto object-contain drop-shadow-sm" />
+          {/* LOGO: Switch otomatis berdasarkan Dark Mode */}
+          <img 
+            src="/PRISMA.PNG" 
+            alt="Prisma Group Logo Light" 
+            className="h-12 w-auto object-contain drop-shadow-sm dark:hidden" 
+          />
+          <img 
+            src="/PRISMA_NEGATIF.PNG" 
+            alt="Prisma Group Logo Dark" 
+            className="h-12 w-auto object-contain drop-shadow-sm hidden dark:block" 
+          />
           <div>
             <h1 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-wide">PRISMA GROUP</h1>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Konsultan Teknik Konstruksi</p>
+            <p className="text-xs font-bold text-amber-600 dark:text-amber-500">Konsultan Teknik Konstruksi</p>
           </div>
         </div>
 
         <div className="relative z-10 space-y-4 my-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-blue-600 dark:text-blue-400 text-[10px] font-bold uppercase tracking-wider shadow-sm">
+          {/* BADGE: Warna Emerald / Hijau */}
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider shadow-sm">
             <ShieldCheck className="w-4 h-4" /> Sistem Manajemen Proyek Terpadu
           </div>
+          
           <h2 className="text-4xl font-extrabold text-slate-800 dark:text-white leading-tight">
             Pantau Progres & Pengawasan Lapangan Secara Real-Time
           </h2>
-          <p className="text-slate-600 dark:text-slate-400 text-sm max-w-md leading-relaxed font-medium">
+          
+          {/* DESKRIPSI: Warna Amber */}
+          <p className="text-amber-600 dark:text-amber-500 text-sm max-w-md leading-relaxed font-semibold">
             Kelola volume progres, laporan harian, matriks Kurva S, hingga pemetaan GIS lokasi proyek secara terpusat, aman, dan presisi.
           </p>
         </div>
@@ -73,7 +87,9 @@ export default function Login({ onLoginSuccess }) {
 
           <div className="text-center space-y-2">
             <div className="lg:hidden flex justify-center mb-4">
-               <img src="/PRISMA.PNG" alt="Prisma Group Logo" className="h-14 w-auto object-contain drop-shadow-sm" />
+               {/* LOGO MOBILE: Switch otomatis berdasarkan Dark Mode */}
+               <img src="/PRISMA.PNG" alt="Prisma Group Logo Light" className="h-14 w-auto object-contain drop-shadow-sm dark:hidden" />
+               <img src="/PRISMA_NEGATIF.PNG" alt="Prisma Group Logo Dark" className="h-14 w-auto object-contain drop-shadow-sm hidden dark:block" />
             </div>
             <h2 className="text-2xl font-extrabold text-slate-800 dark:text-white">Portal Akses</h2>
             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Silakan masuk menggunakan kredensial akun Anda</p>
@@ -108,6 +124,7 @@ export default function Login({ onLoginSuccess }) {
                 <input
                   type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
                   className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl pl-11 pr-11 py-3 text-xs font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-inner transition-colors font-mono"
+                  autoComplete="current-password"
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -130,7 +147,6 @@ export default function Login({ onLoginSuccess }) {
                 Sistem ini tertutup untuk publik. Klien atau Pengawas yang belum memiliki akses dapat mengajukan pembuatan akun ke Administrator.
               </p>
               
-              {/* TOMBOL PENGAJUAN AKUN (Membuka aplikasi Email dengan format terisi) */}
               <a 
                 href="mailto:admin@prisma-group.com?subject=Pengajuan%20Pembuatan%20Akun%20Akses&body=Halo%20Administrator,%0A%0ASaya%20ingin%20mengajukan%20pembuatan%20akun%20untuk%20mengakses%20sistem%20pengawasan%20proyek%20Prisma%20Group.%0A%0ANama%20Lengkap%3A%20%0AInstansi%20%2F%20Perusahaan%3A%20%0AProyek%20Terkait%3A%20%0A%0ATerima%20kasih."
                 className="inline-flex items-center justify-center gap-1.5 w-full bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-bold py-3 rounded-xl text-xs transition-colors"

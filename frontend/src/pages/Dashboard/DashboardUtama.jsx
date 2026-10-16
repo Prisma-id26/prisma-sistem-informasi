@@ -11,13 +11,11 @@ import {
   Tooltip, Legend, ResponsiveContainer, Cell
 } from 'recharts';
 
-// CACHE MEMORI: Data langsung muncul instan (0 detik) saat kembali ke Dashboard
 let cachedDashboard = null;
 
 export default function DashboardUtama() {
   const navigate = useNavigate();
   
-  // Ambil dari memori atau sessionStorage duluan agar tidak ada layar loading
   const [dashboardData, setDashboardData] = useState(() => {
     if (cachedDashboard) return cachedDashboard;
     try {
@@ -26,27 +24,28 @@ export default function DashboardUtama() {
     } catch { return null; }
   });
 
-  // Loading hanya aktif jika benar-benar baru pertama kali buka aplikasi
   const [isLoading, setIsLoading] = useState(() => !dashboardData);
-
   const [userRole, setUserRole] = useState('Tamu');
 
   useEffect(() => {
     document.title = "Prisma Group - Dashboard";
     const userDataStr = localStorage.getItem('user_data');
     if (userDataStr) {
-      try {
-        const user = JSON.parse(userDataStr);
-        setUserRole(user.role || 'Tamu');
-      } catch (error) {}
+      try { setUserRole(JSON.parse(userDataStr).role || 'Tamu'); } catch {}
     }
   }, []);
 
   const canCreateData = ['Administrator', 'Team Leader', 'Pengawas Lapangan'].includes(userRole);
-  const canViewFinance = ['Administrator', 'Direktur', 'Team Leader', 'Owner / PPK'].includes(userRole);
+  const canViewFinance = ['Administrator', 'Direktur'].includes(userRole); 
   const isGuest = userRole === 'Tamu';
 
-  // Ambil data terbaru dari backend (jika cache ada, update berjalan diam-diam di background)
+  // HELPER MENCETAK 4 ANGKA DI BELAKANG KOMA
+  const formatDetailPercent = (val) => {
+    const num = parseFloat(val);
+    if (isNaN(num)) return '0.0000';
+    return num.toFixed(4);
+  };
+
   const fetchDashboardData = async (silent = false) => {
     if (!silent) setIsLoading(true);
     try {
@@ -65,11 +64,28 @@ export default function DashboardUtama() {
   };
 
   useEffect(() => {
-    const hasCache = !!dashboardData;
-    fetchDashboardData(hasCache);
+    fetchDashboardData(!!dashboardData);
   }, []);
 
-  const kpiData = dashboardData?.kpi || { totalProyek: 0, nilaiKontrak: '0', rataDeviasi: '0.00', proyekKritis: 0 };
+  const getStatusStyle = (status) => {
+    const s = (status || '').toLowerCase();
+    if (s.includes('kritis') || s.includes('terlambat') || s.includes('delayed') || s.includes('batal')) {
+      return 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-500/30';
+    }
+    if (s.includes('selesai')) {
+      return 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30';
+    }
+    return 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/30';
+  };
+
+  const getStatusIcon = (status) => {
+    const s = (status || '').toLowerCase();
+    if (s.includes('kritis') || s.includes('terlambat') || s.includes('delayed')) return <AlertTriangle className="w-3.5 h-3.5" />;
+    if (s.includes('belum mulai') || s.includes('persiapan')) return <Clock className="w-3.5 h-3.5" />;
+    return <CheckCircle2 className="w-3.5 h-3.5" />;
+  };
+
+  const kpiData = dashboardData?.kpi || { totalProyek: 0, nilaiKontrak: '0', rataDeviasi: '0.0000', proyekKritis: 0 };
   const chartProgressData = dashboardData?.chartProgressData || [];
   const proyekAktif = dashboardData?.proyekAktif || [];
   const laporanTerbaru = dashboardData?.laporanTerbaru || [];
@@ -80,11 +96,11 @@ export default function DashboardUtama() {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 rounded-lg shadow-xl text-xs">
           <p className="font-bold text-slate-800 dark:text-white mb-2">{label}</p>
           <div className="space-y-1">
-            <p className="text-blue-600 dark:text-blue-400">Target Rencana: <span className="font-mono font-bold">{payload[0].value}%</span></p>
-            <p className="text-emerald-600 dark:text-emerald-400">Realisasi Aktual: <span className="font-mono font-bold">{payload[1].value}%</span></p>
+            <p className="text-blue-600 dark:text-blue-400">Target Rencana: <span className="font-mono font-bold">{formatDetailPercent(payload[0].value)}%</span></p>
+            <p className="text-emerald-600 dark:text-emerald-400">Realisasi Aktual: <span className="font-mono font-bold">{formatDetailPercent(payload[1].value)}%</span></p>
             {!isGuest && (
               <p className={`pt-1 border-t border-slate-100 dark:border-slate-700/50 mt-1 ${payload[0].payload.deviasi < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                Deviasi Progres: <span className="font-mono font-bold">{payload[0].payload.deviasi > 0 ? '+' : ''}{payload[0].payload.deviasi}%</span>
+                Deviasi Progres: <span className="font-mono font-bold">{payload[0].payload.deviasi > 0 ? '+' : ''}{formatDetailPercent(payload[0].payload.deviasi)}%</span>
               </p>
             )}
           </div>
@@ -94,7 +110,6 @@ export default function DashboardUtama() {
     return null;
   };
 
-  // Hanya tampil saat pertama kali membuka web dan belum ada data cache sama sekali
   if (isLoading && !dashboardData) {
     return (
       <div className="flex flex-col items-center justify-center p-20 w-full h-[60vh] bg-white dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/60 shadow-sm animate-fade-in">
@@ -132,7 +147,7 @@ export default function DashboardUtama() {
       {/* KPI CARDS */}
       <div className={`grid grid-cols-1 sm:grid-cols-2 ${gridClass} gap-4`}>
         
-        <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 p-5 rounded-2xl shadow-sm relative overflow-hidden group hover:border-amber-500/50 transition-colors">
+        <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 p-5 rounded-2xl shadow-sm relative overflow-hidden group hover:border-amber-500/50 transition-colors flex flex-col justify-center">
           <div className="absolute top-0 right-0 p-4 opacity-5 dark:opacity-10 group-hover:opacity-10 dark:group-hover:opacity-20 transition-opacity">
             <Building2 className="w-16 h-16 text-amber-500" />
           </div>
@@ -146,7 +161,7 @@ export default function DashboardUtama() {
         </div>
 
         {canViewFinance && (
-          <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 p-5 rounded-2xl shadow-sm relative overflow-hidden group hover:border-emerald-500/50 transition-colors">
+          <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 p-5 rounded-2xl shadow-sm relative overflow-hidden group hover:border-emerald-500/50 transition-colors flex flex-col justify-center">
             <div className="absolute top-0 right-0 p-4 opacity-5 dark:opacity-10 group-hover:opacity-10 dark:group-hover:opacity-20 transition-opacity">
               <DollarSign className="w-16 h-16 text-emerald-500" />
             </div>
@@ -161,7 +176,7 @@ export default function DashboardUtama() {
         )}
 
         {!isGuest && (
-          <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 p-5 rounded-2xl shadow-sm relative overflow-hidden group hover:border-blue-500/50 transition-colors">
+          <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 p-5 rounded-2xl shadow-sm relative overflow-hidden group hover:border-blue-500/50 transition-colors flex flex-col justify-center">
             <div className="absolute top-0 right-0 p-4 opacity-5 dark:opacity-10 group-hover:opacity-10 dark:group-hover:opacity-20 transition-opacity">
               <Activity className="w-16 h-16 text-blue-500" />
             </div>
@@ -169,7 +184,7 @@ export default function DashboardUtama() {
               <span className="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Deviasi Rata-rata</span>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className={`text-3xl font-extrabold ${parseFloat(kpiData.rataDeviasi) < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'}`}>
-                  {kpiData.rataDeviasi}%
+                  {formatDetailPercent(kpiData.rataDeviasi)}%
                 </span>
                 <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${parseFloat(kpiData.rataDeviasi) < 0 ? 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20'}`}>
                   {parseFloat(kpiData.rataDeviasi) < 0 ? 'Defisit' : 'Surplus'}
@@ -180,7 +195,7 @@ export default function DashboardUtama() {
         )}
 
         {!isGuest && (
-          <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 p-5 rounded-2xl shadow-sm relative overflow-hidden group hover:border-rose-500/50 transition-colors">
+          <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 p-5 rounded-2xl shadow-sm relative overflow-hidden group hover:border-rose-500/50 transition-colors flex flex-col justify-center">
             <div className="absolute top-0 right-0 p-4 opacity-5 dark:opacity-10 group-hover:opacity-10 dark:group-hover:opacity-20 transition-opacity">
               <AlertTriangle className="w-16 h-16 text-rose-500" />
             </div>
@@ -295,8 +310,10 @@ export default function DashboardUtama() {
         {/* Mobile: Kartu */}
         <div className="block sm:hidden p-4 space-y-4">
           {proyekAktif.length === 0 ? <p className="text-center text-xs text-slate-500 italic py-4">Belum ada proyek.</p> : proyekAktif.map((proyek) => {
-            const isKritis = !isGuest && (proyek.status === 'Kritis' || proyek.status === 'Terlambat');
-            const isBelumMulai = proyek.status === 'Belum Mulai';
+            const isGuestDelayed = isGuest && (proyek.status === 'Kritis' || proyek.status === 'Terlambat');
+            const displayStatus = isGuestDelayed ? 'Berjalan' : proyek.status;
+            const isBelumMulai = displayStatus === 'Belum Mulai';
+            
             return (
               <div key={proyek.id} onClick={() => navigate(`/projects/${proyek.id}/data`)} className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/50 flex flex-col gap-3 cursor-pointer shadow-sm hover:border-amber-500/30 transition-colors">
                 <div>
@@ -306,27 +323,25 @@ export default function DashboardUtama() {
                 <div className="flex items-center justify-between border-t border-slate-200 dark:border-slate-700/50 pt-2.5">
                   <div className="flex flex-col">
                     <span className="text-[9px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold">Progress</span>
-                    <span className={`font-mono font-bold ${isBelumMulai ? 'text-slate-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{proyek.progress}%</span>
+                    <span className={`font-mono font-bold ${isBelumMulai ? 'text-slate-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{formatDetailPercent(proyek.progress)}%</span>
                   </div>
                   
                   {!isGuest && (
                     <div className="flex flex-col items-center">
                       <span className="text-[9px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold mb-0.5">Deviasi</span>
-                      <span className={`font-mono font-bold px-2 py-0.5 rounded border ${isBelumMulai ? 'text-slate-400 border-slate-200 dark:border-slate-700' : isKritis ? 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-500/30' : 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-slate-800 dark:text-amber-400 dark:border-amber-500/30'}`}>
-                        {proyek.deviasi}%
+                      <span className={`font-mono font-bold px-2 py-0.5 rounded border ${isBelumMulai ? 'text-slate-400 border-slate-200 dark:border-slate-700' : parseFloat(proyek.deviasi) < 0 ? 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-950/30 dark:text-rose-400 dark:border-rose-500/30' : 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-slate-800 dark:text-amber-400 dark:border-amber-500/30'}`}>
+                        {formatDetailPercent(proyek.deviasi)}%
                       </span>
                     </div>
                   )}
 
-                  {!isGuest && (
-                    <div className="flex flex-col items-end">
-                      <span className="text-[9px] text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 font-bold">Status</span>
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${isBelumMulai ? 'bg-slate-100 text-slate-500 border-slate-300 dark:bg-slate-700 dark:text-slate-400 dark:border-slate-600' : isKritis ? 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20'}`}>
-                        {isKritis ? <AlertTriangle className="w-3.5 h-3.5" /> : isBelumMulai ? <Clock className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                        {proyek.status}
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex flex-col items-end">
+                    <span className="text-[9px] text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 font-bold">Status</span>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold border uppercase tracking-wider ${getStatusStyle(displayStatus)}`}>
+                      {getStatusIcon(displayStatus)}
+                      {displayStatus}
+                    </span>
+                  </div>
                 </div>
               </div>
             );
@@ -338,48 +353,61 @@ export default function DashboardUtama() {
           <table className={`w-full text-left border-collapse table-fixed ${isGuest ? 'min-w-[500px]' : 'min-w-[800px]'}`}>
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700/60 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                <th className={`p-4 ${isGuest ? 'w-[60%]' : 'w-[40%]'}`}>Nama Proyek</th>
-                <th className="p-4 text-center w-[20%]">Progress (Actual)</th>
+                <th className={`p-4 ${isGuest ? 'w-[70%]' : 'w-[45%]'}`}>Nama Proyek</th>
+                <th className="p-4 text-center w-[15%]">Plan</th>
+                <th className="p-4 text-center w-[15%]">Actual</th>
                 {!isGuest && (
                   <>
-                    <th className="p-4 text-center w-[20%]">Deviasi Akhir</th>
-                    <th className="p-4 text-center w-[20%]">Status Evaluasi</th>
+                    <th className="p-4 text-center w-[10%]">Deviasi Akhir</th>
+                    <th className="p-4 text-center w-[15%]">Status Evaluasi</th>
                   </>
                 )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700/40 text-xs text-slate-700 dark:text-slate-300">
-              {proyekAktif.length === 0 ? <tr><td colSpan={isGuest ? 2 : 4} className="text-center py-8 text-slate-500 italic font-medium">Belum ada proyek aktif.</td></tr> : proyekAktif.map((proyek) => {
-                const isKritis = !isGuest && (proyek.status === 'Kritis' || proyek.status === 'Terlambat');
-                const isBelumMulai = proyek.status === 'Belum Mulai';
+              {proyekAktif.length === 0 ? <tr><td colSpan={isGuest ? 3 : 5} className="text-center py-8 text-slate-500 italic font-medium">Belum ada proyek aktif.</td></tr> : proyekAktif.map((proyek) => {
+                const isGuestDelayed = isGuest && (proyek.status === 'Kritis' || proyek.status === 'Terlambat');
+                const displayStatus = isGuestDelayed ? 'Berjalan' : proyek.status;
+                const isBelumMulai = displayStatus === 'Belum Mulai';
+
                 return (
-                  <tr key={proyek.id} onClick={() => navigate(`/projects/${proyek.id}/data`)} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer group">
-                    <td className="p-4 font-bold text-slate-800 dark:text-white truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors" title={proyek.nama}>
-                      <span className="text-amber-500 mr-2 text-[10px] font-mono">#{proyek.id}</span>
-                      {proyek.nama}
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <span className={`font-mono font-bold ${isBelumMulai ? 'text-slate-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{proyek.progress}%</span>
+                  <tr key={proyek.id} onClick={() => navigate(`/projects/${proyek.id}/data`)} className="h-px hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer group">
+                    <td className="p-4 align-middle">
+                      <div className="font-bold text-slate-800 dark:text-white truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors" title={proyek.nama}>
+                        <span className="text-amber-500 mr-2 text-[10px] font-mono">#{proyek.id}</span>
+                        {proyek.nama}
                       </div>
                     </td>
+
+                    <td className="p-4 align-middle h-full border-l border-slate-100 dark:border-slate-700/30 bg-blue-50/20 dark:bg-blue-900/10">
+                      <div className="flex flex-col justify-center items-center text-center h-full">
+                        <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
+                          {formatDetailPercent(proyek.plan)}%
+                        </span>
+                      </div>
+                    </td>
+                    <td className="p-4 align-middle h-full border-l border-slate-100 dark:border-slate-700/30 bg-emerald-50/20 dark:bg-emerald-900/10">
+                      <div className="flex flex-col justify-center items-center text-center h-full">
+                        <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                          {formatDetailPercent(proyek.progress)}%
+                        </span>
+                      </div>
+                    </td>
+                    
                     {!isGuest && (
                       <>
-                        <td className="p-4 text-center">
+                        <td className="p-4 align-middle text-center border-l border-slate-100 dark:border-slate-700/30">
                           <span className={`font-mono font-bold px-2 py-1 rounded bg-slate-50 dark:bg-slate-900 border ${
                             isBelumMulai ? 'text-slate-400 border-slate-200 dark:border-slate-700' :
-                            isKritis ? 'text-rose-600 border-rose-200 dark:text-rose-400 dark:border-rose-500/30' : 'text-amber-600 border-amber-200 dark:text-amber-400 dark:border-amber-500/30'
+                            parseFloat(proyek.deviasi) < 0 ? 'text-rose-600 border-rose-200 dark:text-rose-400 dark:border-rose-500/30' : 'text-amber-600 border-amber-200 dark:text-amber-400 dark:border-amber-500/30'
                           }`}>
-                            {proyek.deviasi}%
+                            {formatDetailPercent(proyek.deviasi)}%
                           </span>
                         </td>
-                        <td className="p-4 text-center">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[9px] font-bold border uppercase tracking-wider ${
-                            isBelumMulai ? 'bg-slate-100 text-slate-500 border-slate-300 dark:bg-slate-700 dark:text-slate-400 dark:border-slate-600' :
-                            isKritis ? 'bg-rose-50 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20'
-                          }`}>
-                            {isBelumMulai ? <Clock className="w-3.5 h-3.5"/> : isKritis ? <AlertTriangle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                            {proyek.status}
+                        <td className="p-4 align-middle text-center">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[9px] font-bold border uppercase tracking-wider ${getStatusStyle(displayStatus)}`}>
+                            {getStatusIcon(displayStatus)}
+                            {displayStatus}
                           </span>
                         </td>
                       </>

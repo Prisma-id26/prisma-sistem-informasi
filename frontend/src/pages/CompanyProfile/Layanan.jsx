@@ -16,17 +16,15 @@ export default function Layanan({ services = [] }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {services.map((srv) => (
               <div key={srv.id} className="bg-slate-50 dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700/60 hover:border-amber-500 dark:hover:border-amber-500 hover:shadow-2xl hover:shadow-amber-500/10 transition-all group flex flex-col">
-                <div className="w-full h-48 mb-6 overflow-hidden rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-500/20 flex items-center justify-center">
-                  <img 
-                    src={srv.image ? `${import.meta.env.VITE_API_URL.replace('/api', '')}/storage/${srv.image}` : "/PRISMA.PNG"} 
-                    alt={srv.title} 
-                    className={`w-full h-full group-hover:scale-110 transition-transform duration-500 ${srv.image ? 'object-cover' : 'object-contain h-16 opacity-40 grayscale group-hover:grayscale-0 group-hover:opacity-100'}`}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = "/PRISMA.PNG";
-                      e.target.className = "h-16 w-auto object-contain opacity-40 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500";
-                    }}
-                  />
+                <div className="w-full h-48 mb-6 overflow-hidden rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-500/20 flex items-center justify-center relative">
+                  {srv.image ? (
+                     <img src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/storage/${srv.image}`} alt={srv.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                  ) : (
+                     <>
+                        <img src="/PRISMA.PNG" alt="Prisma Logo Light" className="h-16 w-auto object-contain opacity-40 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500 dark:hidden" />
+                        <img src="/PRISMA_NEGATIF.PNG" alt="Prisma Logo Dark" className="h-16 w-auto object-contain opacity-40 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500 hidden dark:block" />
+                     </>
+                  )}
                 </div>
                 
                 <h3 className="text-xl font-bold text-black dark:text-amber-400 mb-3 group-hover:text-amber-600 dark:group-hover:text-amber-500 transition-colors">

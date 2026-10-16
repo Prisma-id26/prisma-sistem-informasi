@@ -74,8 +74,12 @@ export default function CompanyProfile() {
       }`}>
         <div className="container mx-auto px-6 md:px-12 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
-            <img src="/PRISMA.PNG" alt="Prisma Group" className="h-10 md:h-12 w-auto drop-shadow-sm object-contain group-hover:scale-105 transition-transform" />
-            <div className="hidden sm:block"> {/* Teks disembunyikan di layar HP agar rapi, tampil di layar besar */}
+            
+            {/* LOGO: Switch otomatis berdasarkan Mode Terang/Gelap */}
+            <img src="/PRISMA.PNG" alt="Prisma Group" className="h-10 md:h-12 w-auto drop-shadow-sm object-contain group-hover:scale-105 transition-transform dark:hidden" />
+            <img src="/PRISMA_NEGATIF.PNG" alt="Prisma Group" className="h-10 md:h-12 w-auto drop-shadow-sm object-contain group-hover:scale-105 transition-transform hidden dark:block" />
+            
+            <div className="hidden sm:block"> 
               <h1 className="text-lg font-extrabold text-slate-800 dark:text-white leading-none tracking-wide group-hover:text-amber-500 transition-colors">PRISMA GROUP</h1>
               <p className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest mt-0.5">Konsultan Teknik</p>
             </div>
@@ -125,7 +129,7 @@ export default function CompanyProfile() {
 
       <footer className="bg-slate-900 border-t border-slate-800 py-10 text-center text-slate-400 text-sm">
         <div className="container mx-auto px-6">
-          <img src="/PRISMA.PNG" alt="Prisma Group" className="h-14 w-auto mx-auto mb-5 drop-shadow-md object-contain" />
+          <img src="/PRISMA_NEGATIF.PNG" alt="Prisma Group" className="h-14 w-auto mx-auto mb-5 drop-shadow-md object-contain" />
           <p className="font-medium">&copy; {new Date().getFullYear()} Prisma Jasa Konsulindo. All rights reserved.</p>
         </div>
       </footer>
