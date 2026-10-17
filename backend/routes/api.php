@@ -25,8 +25,11 @@ Route::get('/public/company-profile', [CompanyProfileController::class, 'getPubl
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/reset-password', [AuthController::class, 'updatePassword']); // Rute POST untuk submit password baru
+
 Route::get('/reset-password/{token}', function (Request $request, $token) {
-    $frontendUrl = 'http://localhost:5173/reset-password';
+    // Diarahkan langsung ke domain production
+    $frontendUrl = 'https://prismagroup.id/reset-password';
     return redirect($frontendUrl . '?token=' . $token . '&email=' . $request->email);
 })->name('password.reset');
 

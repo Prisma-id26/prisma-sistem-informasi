@@ -6,6 +6,7 @@ import MainLayout from './components/Layout/MainLayout';
 // Import Pages Auth
 import Login from './pages/Auth/Login';
 import ForgotPassword from './pages/Auth/ForgotPassword';
+import PasswordRecovery from './pages/Auth/PasswordRecovery';
 
 // 1. IMPORT WEBSITE PUBLIK (Etalase Depan)
 import CompanyProfile from './pages/CompanyProfile/CompanyProfile'; 
@@ -42,6 +43,7 @@ export default function App() {
       <Route path="/" element={<CompanyProfile />} /> 
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<PasswordRecovery />} />
 
       {/* ============================================================== */}
       {/* AREA SISTEM INFORMASI (Harus Login, dibungkus Sidebar Layout)  */}

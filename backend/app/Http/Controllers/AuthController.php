@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -107,6 +108,7 @@ class AuthController extends Controller
         ]);
     }
 
+    // Fungsi ini untuk Admin yang me-reset password pengguna lain
     public function resetPassword(Request $request, $id)
     {
         $user = User::findOrFail($id);
@@ -125,6 +127,7 @@ class AuthController extends Controller
         ]);
     }
 
+    // Fungsi untuk memproses Lupa Password (Mengirim Tautan Email)
     public function forgotPassword(Request $request)
     {
         $request->validate(['email' => 'required|email']);
@@ -150,20 +153,51 @@ class AuthController extends Controller
         ], 500);
     }
 
+    // ==============================================================
+    // FUNGSI BARU: Memproses password baru dari tautan email
+    // ==============================================================
+    public function updatePassword(Request $request)
+    {
+        $request->validate([
+            'token' => 'required',
+            'email' => 'required|email',
+            'password' => 'required|string|min:6|confirmed', // Pastikan cocok dengan password_confirmation
+        ]);
+
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user, $password) {
+                $user->forceFill([
+                    'password' => Hash::make($password)
+                ])->setRememberToken(Str::random(60));
+
+                $user->save();
+            }
+        );
+
+        if ($status === Password::PASSWORD_RESET) {
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Kata sandi berhasil direset! Silakan login dengan kata sandi baru Anda.'
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Gagal mereset kata sandi. Tautan mungkin usang atau tidak valid.'
+        ], 400);
+    }
+
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
         return response()->json(['message' => 'Logout berhasil']);
     }
 
-    // ==============================================================
-    // PERBAIKAN: FUNGSI DELETE AKUN
-    // ==============================================================
     public function destroy($id)
     {
         $user = User::findOrFail($id);
 
-        // Mencegah penghapusan satu-satunya akun Administrator
         if ($user->role === 'Administrator') {
             $adminCount = User::where('role', 'Administrator')->count();
             if ($adminCount <= 1) {
