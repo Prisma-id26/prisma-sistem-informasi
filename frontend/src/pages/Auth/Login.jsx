@@ -35,6 +35,20 @@ export default function Login({ onLoginSuccess }) {
     }
   };
 
+  // FUNGSI UNTUK MEMBUKA EMAIL LANGSUNG KE GMAIL WEB
+  const handleEmailRequest = (e) => {
+    e.preventDefault();
+    const to = "Prismagroup2026@gmail.com";
+    const subject = encodeURIComponent("Pengajuan Pembuatan Akun Akses");
+    const body = encodeURIComponent(
+      "Halo Administrator,\n\nSaya ingin mengajukan pembuatan akun untuk mengakses sistem pengawasan proyek Prisma Group.\n\nNama Lengkap: \nInstansi / Perusahaan: \nProyek Terkait: \n\nTerima kasih."
+    );
+    
+    // Buka Compose Gmail di Tab Baru
+    const gmailLink = `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${body}`;
+    window.open(gmailLink, '_blank');
+  };
+
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
       {/* Side Visual Section - Branding PRISMA GROUP */}
@@ -147,13 +161,15 @@ export default function Login({ onLoginSuccess }) {
                 Sistem ini tertutup untuk publik. Klien atau Pengawas yang belum memiliki akses dapat mengajukan pembuatan akun ke Administrator.
               </p>
               
-              <a 
-                href="mailto:admin@prisma-group.com?subject=Pengajuan%20Pembuatan%20Akun%20Akses&body=Halo%20Administrator,%0A%0ASaya%20ingin%20mengajukan%20pembuatan%20akun%20untuk%20mengakses%20sistem%20pengawasan%20proyek%20Prisma%20Group.%0A%0ANama%20Lengkap%3A%20%0AInstansi%20%2F%20Perusahaan%3A%20%0AProyek%20Terkait%3A%20%0A%0ATerima%20kasih."
-                className="inline-flex items-center justify-center gap-1.5 w-full bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-bold py-3 rounded-xl text-xs transition-colors"
+              {/* TOMBOL PENGAJUAN AKUN DIPERBARUI */}
+              <button 
+                type="button"
+                onClick={handleEmailRequest}
+                className="inline-flex items-center justify-center gap-1.5 w-full bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-bold py-3 rounded-xl text-xs transition-colors cursor-pointer shadow-sm"
               >
                 <MailOpen className="w-4 h-4 text-amber-500" />
                 Ajukan Pembuatan Akun Akses
-              </a>
+              </button>
             </div>
             
           </form>
