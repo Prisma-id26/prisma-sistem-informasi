@@ -102,83 +102,94 @@ class DashboardController extends Controller
         });
     }
 
-    public function summary()
+    // PERBAIKAN: Ubah nama fungsi dari summary() menjadi index() agar cocok dengan api.php
+    public function index()
     {
-        $projects = Project::all();
-        $projectsWithProgress = $this->injectProgressToCollection($projects);
+        try {
+            $projects = Project::all();
+            $projectsWithProgress = $this->injectProgressToCollection($projects);
 
-        $activeProjects = $projectsWithProgress->filter(function ($p) {
-            return !in_array($p->status, ['Selesai', 'Selesai 100%', 'Batal']);
-        });
-
-        // 1. KPI
-        $totalProyek = $activeProjects->count();
-        $nilaiKontrak = $activeProjects->sum('nilai_kontrak');
-        $rataDeviasi = $activeProjects->count() > 0 ? $activeProjects->avg('deviasi') : 0;
-        $proyekKritis = $activeProjects->where('status', 'Kritis')->count();
-
-        // 2. Chart (Presisi 4 Desimal)
-        $chartProgressData = $activeProjects->map(function ($p) {
-            return [
-                'name' => $p->nama_proyek,
-                'plan' => $p->progress_plan,
-                'actual' => $p->progress_actual,
-                'deviasi' => $p->deviasi
-            ];
-        })->values();
-
-        // 3. Proyek Aktif Teratas
-        $proyekAktif = $activeProjects->map(function ($p) {
-            return [
-                'id' => $p->id,
-                'nama' => $p->nama_proyek,
-                'progress' => $p->progress_actual,
-                'plan' => $p->progress_plan,
-                'deviasi' => $p->deviasi,
-                'status' => $p->status
-            ];
-        })->sortBy('deviasi')->take(5)->values();
-
-        // 4. Laporan Terbaru
-        $laporanTerbaru = DB::table('daily_reports')
-            ->join('projects', 'daily_reports.project_id', '=', 'projects.id')
-            ->orderBy('daily_reports.tanggal', 'desc')
-            ->orderBy('daily_reports.created_at', 'desc')
-            ->take(5)
-            ->select(
-                'daily_reports.id',
-                'projects.nama_proyek as proyek',
-                'daily_reports.pengawas',
-                'daily_reports.tanggal',
-                'daily_reports.status'
-            )
-            ->get()
-            ->map(function ($lap) {
-                $kegiatanCount = DB::table('daily_report_activities')->where('daily_report_id', $lap->id)->count();
-                return [
-                    'id' => $lap->id,
-                    'proyek' => $lap->proyek,
-                    'pengawas' => $lap->pengawas,
-                    'tanggal' => date('d M Y', strtotime($lap->tanggal)),
-                    'status' => ucfirst($lap->status),
-                    'jumlahKegiatan' => $kegiatanCount,
-                    'originalData' => $lap
-                ];
+            $activeProjects = $projectsWithProgress->filter(function ($p) {
+                return !in_array($p->status, ['Selesai', 'Selesai 100%', 'Batal']);
             });
 
-        return response()->json([
-            'status' => 'success',
-            'data' => [
-                'kpi' => [
-                    'totalProyek' => $totalProyek,
-                    'nilaiKontrak' => number_format($nilaiKontrak, 0, ',', '.'),
-                    'rataDeviasi' => number_format($rataDeviasi, 4, '.', ''),
-                    'proyekKritis' => $proyekKritis
-                ],
-                'chartProgressData' => $chartProgressData,
-                'proyekAktif' => $proyekAktif,
-                'laporanTerbaru' => $laporanTerbaru
-            ]
-        ]);
+            // 1. KPI
+            $totalProyek = $activeProjects->count();
+
+            // Memaksa casting ke (float) untuk mencegah TypeError
+            $nilaiKontrak = (float) $activeProjects->sum('nilai_kontrak');
+            $rataDeviasi = $activeProjects->count() > 0 ? (float) $activeProjects->avg('deviasi') : 0.0;
+            $proyekKritis = $activeProjects->where('status', 'Kritis')->count();
+
+            // 2. Chart
+            $chartProgressData = $activeProjects->map(function ($p) {
+                return [
+                    'name' => $p->nama_proyek,
+                    'plan' => (float) $p->progress_plan,
+                    'actual' => (float) $p->progress_actual,
+                    'deviasi' => (float) $p->deviasi
+                ];
+            })->values();
+
+            // 3. Proyek Aktif Teratas
+            $proyekAktif = $activeProjects->map(function ($p) {
+                return [
+                    'id' => $p->id,
+                    'nama' => $p->nama_proyek,
+                    'progress' => (float) $p->progress_actual,
+                    'plan' => (float) $p->progress_plan,
+                    'deviasi' => (float) $p->deviasi,
+                    'status' => $p->status
+                ];
+            })->sortBy('deviasi')->take(5)->values();
+
+            // 4. Laporan Terbaru
+            $laporanTerbaru = DB::table('daily_reports')
+                ->join('projects', 'daily_reports.project_id', '=', 'projects.id')
+                ->orderBy('daily_reports.tanggal', 'desc')
+                ->orderBy('daily_reports.id', 'desc')
+                ->take(5)
+                ->select(
+                    'daily_reports.id',
+                    'projects.nama_proyek as proyek',
+                    'daily_reports.pengawas',
+                    'daily_reports.tanggal',
+                    'daily_reports.status'
+                )
+                ->get()
+                ->map(function ($lap) {
+                    $kegiatanCount = DB::table('daily_report_activities')->where('daily_report_id', $lap->id)->count();
+                    return [
+                        'id' => $lap->id,
+                        'proyek' => $lap->proyek,
+                        'pengawas' => $lap->pengawas,
+                        'tanggal' => date('d M Y', strtotime($lap->tanggal)),
+                        'status' => ucfirst($lap->status),
+                        'jumlahKegiatan' => $kegiatanCount,
+                        'originalData' => $lap
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'kpi' => [
+                        'totalProyek' => $totalProyek,
+                        'nilaiKontrak' => number_format($nilaiKontrak, 0, ',', '.'),
+                        'rataDeviasi' => number_format($rataDeviasi, 4, '.', ''),
+                        'proyekKritis' => $proyekKritis
+                    ],
+                    'chartProgressData' => $chartProgressData,
+                    'proyekAktif' => $proyekAktif,
+                    'laporanTerbaru' => $laporanTerbaru
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Kesalahan Server: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

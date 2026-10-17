@@ -10,7 +10,7 @@ use App\Http\Controllers\ProjectGisController;
 use App\Http\Controllers\DailyReportController;
 use App\Http\Controllers\ProjectScheduleController;
 use App\Http\Controllers\CompanyProfileController;
-use App\Http\Controllers\DashboardController; // Import Controller Dashboard
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProjectGalleryController;
 
 Route::get('/test-koneksi', function () {
@@ -104,6 +104,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/users', [AuthController::class, 'index']);
     Route::put('/users/{id}', [AuthController::class, 'update']);
     Route::put('/users/{id}/reset-password', [AuthController::class, 'resetPassword']);
+    Route::delete('/users/{id}', [AuthController::class, 'destroy']); // ROUTE DELETE
 
     // --- CMS PENGATURAN PERUSAHAAN (Untuk PengaturanPerusahaan.jsx) ---
     Route::post('/cms/landing-page', [CompanyProfileController::class, 'updateLandingPage']);
@@ -118,6 +119,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/cms/events/{id}', [CompanyProfileController::class, 'destroyEvent']);
 
     Route::get('/projects/{id}/gallery', [ProjectGalleryController::class, 'index']);
-
     Route::get('/projects/{id}/gallery-archive', [App\Http\Controllers\ProjectDetailController::class, 'downloadGalleryArchive']);
 });

@@ -4,7 +4,7 @@ import api from '../../api.js';
 import { 
   Building2, Activity, AlertTriangle, DollarSign, 
   FileText, ArrowRight, TrendingUp, MapPin, 
-  CheckCircle2, Calendar, Loader2, Clock, Plus, CalendarDays, ListTodo
+  CheckCircle2, Calendar, Loader2, Clock, Plus, CalendarDays, ListTodo, AlertCircle
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
@@ -25,6 +25,7 @@ export default function DashboardUtama() {
   });
 
   const [isLoading, setIsLoading] = useState(() => !dashboardData);
+  const [errorMsg, setErrorMsg] = useState(''); // STATE ERROR BARU
   const [userRole, setUserRole] = useState('Tamu');
 
   useEffect(() => {
@@ -39,7 +40,6 @@ export default function DashboardUtama() {
   const canViewFinance = ['Administrator', 'Direktur'].includes(userRole); 
   const isGuest = userRole === 'Tamu';
 
-  // HELPER MENCETAK 4 ANGKA DI BELAKANG KOMA
   const formatDetailPercent = (val) => {
     const num = parseFloat(val);
     if (isNaN(num)) return '0.0000';
@@ -48,6 +48,7 @@ export default function DashboardUtama() {
 
   const fetchDashboardData = async (silent = false) => {
     if (!silent) setIsLoading(true);
+    setErrorMsg('');
     try {
       const res = await api.get('/dashboard/summary');
       const data = res.data?.data;
@@ -58,6 +59,8 @@ export default function DashboardUtama() {
       }
     } catch (error) {
       console.error("Gagal load data dashboard:", error);
+      // Tangkap pesan error dari backend
+      setErrorMsg(error.response?.data?.message || "Gagal menyinkronkan data dari server.");
     } finally {
       setIsLoading(false);
     }
@@ -110,11 +113,24 @@ export default function DashboardUtama() {
     return null;
   };
 
+  // Tampilkan layar loading awal
   if (isLoading && !dashboardData) {
     return (
       <div className="flex flex-col items-center justify-center p-20 w-full h-[60vh] bg-white dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/60 shadow-sm animate-fade-in">
         <Loader2 className="w-10 h-10 text-amber-500 animate-spin mb-4" />
         <p className="text-sm font-bold text-slate-600 dark:text-slate-300">Menyinkronkan Dashboard...</p>
+      </div>
+    );
+  }
+
+  // Tampilkan peringatan jika terjadi error 500 (Fatal Error Server)
+  if (errorMsg && !dashboardData) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 w-full h-[60vh] bg-white dark:bg-slate-800/60 rounded-2xl border border-rose-200 dark:border-rose-500/30 shadow-sm animate-fade-in text-center">
+        <AlertCircle className="w-12 h-12 text-rose-500 mb-4" />
+        <h2 className="text-lg font-bold text-slate-800 dark:text-white mb-2">Gagal Memuat Dashboard</h2>
+        <p className="text-xs text-rose-600 dark:text-rose-400 max-w-lg mb-6">{errorMsg}</p>
+        <button onClick={() => window.location.reload()} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition-colors">Muat Ulang Halaman</button>
       </div>
     );
   }
@@ -242,8 +258,8 @@ export default function DashboardUtama() {
                   <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} unit="%" domain={[0, 100]} className="dark:stroke-slate-400" />
                   <Tooltip content={<CustomTooltip />} cursor={{fill: '#e2e8f0', opacity: 0.2}} />
                   <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} iconType="circle" />
-                  <Bar dataKey="plan" name="Plan (Rencana)" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                  <Bar dataKey="actual" name="Actual (Realisasi)" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40}>
+                  <Bar dataKey="plan" name="Rencana" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Bar dataKey="actual" name="Realisasi" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40}>
                     {chartProgressData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.deviasi < 0 ? (isGuest ? '#10b981' : '#f43f5e') : '#10b981'} />
                     ))}
@@ -354,8 +370,8 @@ export default function DashboardUtama() {
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700/60 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                 <th className={`p-4 ${isGuest ? 'w-[70%]' : 'w-[45%]'}`}>Nama Proyek</th>
-                <th className="p-4 text-center w-[15%]">Plan</th>
-                <th className="p-4 text-center w-[15%]">Actual</th>
+                <th className="p-4 text-center w-[15%]">Realisasi</th>
+                <th className="p-4 text-center w-[15%]">Rencana</th>
                 {!isGuest && (
                   <>
                     <th className="p-4 text-center w-[10%]">Deviasi Akhir</th>
@@ -378,18 +394,17 @@ export default function DashboardUtama() {
                         {proyek.nama}
                       </div>
                     </td>
-
-                    <td className="p-4 align-middle h-full border-l border-slate-100 dark:border-slate-700/30 bg-blue-50/20 dark:bg-blue-900/10">
-                      <div className="flex flex-col justify-center items-center text-center h-full">
-                        <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
-                          {formatDetailPercent(proyek.plan)}%
-                        </span>
-                      </div>
-                    </td>
                     <td className="p-4 align-middle h-full border-l border-slate-100 dark:border-slate-700/30 bg-emerald-50/20 dark:bg-emerald-900/10">
                       <div className="flex flex-col justify-center items-center text-center h-full">
                         <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
                           {formatDetailPercent(proyek.progress)}%
+                        </span>
+                      </div>
+                    </td>
+                    <td className="p-4 align-middle h-full border-l border-slate-100 dark:border-slate-700/30 bg-blue-50/20 dark:bg-blue-900/10">
+                      <div className="flex flex-col justify-center items-center text-center h-full">
+                        <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
+                          {formatDetailPercent(proyek.plan)}%
                         </span>
                       </div>
                     </td>

@@ -45,20 +45,15 @@ class AuthController extends Controller
         ]);
     }
 
-    // ==============================================================
-    // PERBAIKAN: Menerima 'role' dari Frontend, jika kosong set 'Tamu'
-    // ==============================================================
     public function register(Request $request)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|unique:users',
             'password' => 'required|string|min:6',
-            'role' => 'nullable|string' // Role kini diizinkan masuk
+            'role' => 'nullable|string'
         ]);
 
-        // Jika Frontend mengirimkan Role (misal dari Manajemen Akun), gunakan itu.
-        // Jika kosong (misal mendaftar dari halaman depan), gunakan 'Tamu'.
         $roleToSet = !empty($validated['role']) ? $validated['role'] : 'Tamu';
 
         $user = User::create([
@@ -159,5 +154,31 @@ class AuthController extends Controller
     {
         $request->user()->currentAccessToken()->delete();
         return response()->json(['message' => 'Logout berhasil']);
+    }
+
+    // ==============================================================
+    // PERBAIKAN: FUNGSI DELETE AKUN
+    // ==============================================================
+    public function destroy($id)
+    {
+        $user = User::findOrFail($id);
+
+        // Mencegah penghapusan satu-satunya akun Administrator
+        if ($user->role === 'Administrator') {
+            $adminCount = User::where('role', 'Administrator')->count();
+            if ($adminCount <= 1) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Gagal: Tidak dapat menghapus satu-satunya akun Administrator.'
+                ], 403);
+            }
+        }
+
+        $user->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Akun berhasil dihapus permanen.'
+        ]);
     }
 }

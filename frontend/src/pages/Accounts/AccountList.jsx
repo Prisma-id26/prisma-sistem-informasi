@@ -19,17 +19,14 @@ export default function AccountList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('Semua');
 
-  // --- MODAL STATES ---
   const [modalType, setModalType] = useState(null);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form States
   const [addFormData, setAddFormData] = useState({ nama: '', email: '', role: 'Pengawas Lapangan', password: '' });
   const [editFormData, setEditFormData] = useState({ nama: '', email: '', role: 'Pengawas Lapangan', status: 'Aktif' });
   const [newPassword, setNewPassword] = useState('');
 
-  // --- FETCH DATA DARI LARAVEL ---
   useEffect(() => {
     fetchUsers(true);
   }, []);
@@ -47,7 +44,7 @@ export default function AccountList() {
         email: user.email,
         role: user.role || 'Pengawas Lapangan',
         status: user.status || 'Aktif',
-        isNew: user.is_new || false, // <--- Menangkap flag is_new dari Laravel
+        isNew: user.is_new || false,
         lastLogin: user.updated_at 
           ? new Date(user.updated_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' WITA'
           : 'Belum pernah login'
@@ -62,7 +59,6 @@ export default function AccountList() {
     }
   };
 
-  // Helper Buka Modal
   const openModal = (type, account = null) => {
     setSelectedAccount(account);
     if (type === 'edit' && account) {
@@ -73,7 +69,6 @@ export default function AccountList() {
     setModalType(type);
   };
 
-  // Helper Tutup Modal
   const closeModal = () => {
     setModalType(null);
     setTimeout(() => {
@@ -85,7 +80,6 @@ export default function AccountList() {
     }, 200);
   };
 
-  // --- HANDLE TAMBAH AKUN BARU ---
   const handleAddAccount = async () => {
     if (!addFormData.nama || !addFormData.email || !addFormData.password) {
       setErrorMsg('Mohon lengkapi semua field yang wajib diisi.');
@@ -107,7 +101,6 @@ export default function AccountList() {
     }
   };
 
-  // --- HANDLE UPDATE AKUN (EDIT) ---
   const handleUpdateAccount = async () => {
     setIsSubmitting(true);
     setErrorMsg('');
@@ -125,7 +118,6 @@ export default function AccountList() {
     }
   };
 
-  // --- HANDLE RESET PASSWORD ---
   const handleResetPassword = async () => {
     if (!newPassword || newPassword.length < 6) {
       setErrorMsg('Password baru harus diisi dan minimal 6 karakter.');
@@ -146,14 +138,31 @@ export default function AccountList() {
     }
   };
 
-  // Filter Data
+  // --- PERBAIKAN: FUNGSI DELETE AKUN ---
+  const handleDeleteAccount = async () => {
+    setIsSubmitting(true);
+    setErrorMsg('');
+    try {
+      await api.delete(`/users/${selectedAccount.id}`);
+      fetchUsers(false); 
+      closeModal(); 
+    } catch (error) {
+      if (error.response && error.response.data.message) {
+        setErrorMsg(error.response.data.message);
+      } else {
+        setErrorMsg('Gagal menghapus akun. Cek koneksi server.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const filteredAccounts = accounts.filter(acc => {
     const matchSearch = acc.nama.toLowerCase().includes(searchTerm.toLowerCase()) || acc.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchRole = filterRole === 'Semua' || acc.role === filterRole;
     return matchSearch && matchRole;
   });
 
-  // Helper Badge
   const getRoleBadge = (role) => {
     switch (role) {
       case 'Administrator': return { icon: <Shield className="w-3 h-3" />, color: 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/20' };
@@ -168,7 +177,6 @@ export default function AccountList() {
   return (
     <div className="w-full space-y-6 relative">
       
-      {/* HEADER & ACTION BAR */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-extrabold text-slate-800 dark:text-white tracking-wide flex items-center gap-2">
@@ -178,7 +186,6 @@ export default function AccountList() {
         </div>
         
         <div className="flex flex-wrap md:flex-nowrap items-center gap-2 sm:gap-3 w-full md:w-auto">
-
           <div className="relative flex-1 md:flex-none min-w-[150px]">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -212,7 +219,6 @@ export default function AccountList() {
         </div>
       </div>
 
-      {/* PEMBERITAHUAN ERROR LUAR */}
       {errorMsg && !modalType && (
         <div className="p-4 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl flex items-center gap-2 text-rose-600 dark:text-rose-400 text-xs font-medium">
           <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -220,7 +226,6 @@ export default function AccountList() {
         </div>
       )}
 
-      {/* LOADING STATE */}
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl">
           <Loader2 className="w-8 h-8 text-amber-500 animate-spin mb-3" />
@@ -242,7 +247,6 @@ export default function AccountList() {
                       <div className="flex-1 min-w-0 pr-6">
                         <p className="font-bold text-slate-800 dark:text-white text-sm truncate flex items-center gap-2">
                           {acc.nama}
-                          {/* BADGE NEW MOBILE */}
                           {acc.isNew && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm shadow-amber-500/20 animate-pulse">
                               <Sparkles className="w-2.5 h-2.5" /> NEW
@@ -321,7 +325,6 @@ export default function AccountList() {
                               <div className="truncate">
                                 <p className="font-bold text-slate-800 dark:text-white text-[13px] truncate flex items-center gap-2">
                                   {acc.nama}
-                                  {/* BADGE NEW DESKTOP */}
                                   {acc.isNew && (
                                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm shadow-amber-500/20 animate-pulse">
                                       <Sparkles className="w-2.5 h-2.5" /> NEW
@@ -391,14 +394,9 @@ export default function AccountList() {
         </div>
       </div>
 
-      {/* ========================================== */}
-      {/* KUMPULAN MODAL (POP-UP)                    */}
-      {/* ========================================== */}
-
       {modalType && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
           
-          {/* MODAL 0: TAMBAH AKUN BARU */}
           {modalType === 'add' && (
             <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden" onClick={e => e.stopPropagation()}>
               <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700">
@@ -469,7 +467,6 @@ export default function AccountList() {
             </div>
           )}
 
-          {/* MODAL 1: EDIT AKUN */}
           {modalType === 'edit' && selectedAccount && (
             <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden" onClick={e => e.stopPropagation()}>
               <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700">
@@ -540,7 +537,6 @@ export default function AccountList() {
             </div>
           )}
 
-          {/* MODAL 2: RESET PASSWORD */}
           {modalType === 'reset' && selectedAccount && (
             <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden" onClick={e => e.stopPropagation()}>
               <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700">
@@ -582,7 +578,7 @@ export default function AccountList() {
             </div>
           )}
 
-          {/* MODAL 3: KONFIRMASI HAPUS */}
+          {/* PERBAIKAN: MODAL KONFIRMASI HAPUS SEKARANG MENGEKSEKUSI handleDeleteAccount */}
           {modalType === 'delete' && selectedAccount && (
             <div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden text-center p-6" onClick={e => e.stopPropagation()}>
               <div className="w-14 h-14 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
@@ -592,9 +588,19 @@ export default function AccountList() {
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
                 Tindakan ini akan menghapus akun <span className="font-bold text-slate-700 dark:text-slate-300">{selectedAccount.nama}</span> secara permanen dari sistem. Lanjutkan?
               </p>
+
+              {errorMsg && (
+                <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-500 text-xs font-medium">
+                  {errorMsg}
+                </div>
+              )}
+
               <div className="flex gap-3">
-                <button onClick={closeModal} className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Batal</button>
-                <button onClick={closeModal} className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-xl transition-colors shadow-lg shadow-rose-500/20 flex items-center justify-center gap-2"><Trash2 className="w-4 h-4"/> Ya, Hapus</button>
+                <button onClick={closeModal} disabled={isSubmitting} className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50">Batal</button>
+                <button onClick={handleDeleteAccount} disabled={isSubmitting} className="flex-1 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-xl transition-colors shadow-lg shadow-rose-500/20 flex items-center justify-center gap-2 disabled:opacity-50">
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin"/> : <Trash2 className="w-4 h-4"/>}
+                  {isSubmitting ? 'Menghapus...' : 'Ya, Hapus'}
+                </button>
               </div>
             </div>
           )}

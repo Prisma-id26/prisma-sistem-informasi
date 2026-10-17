@@ -190,15 +190,15 @@ export default function Sidebar() {
         <div className="flex flex-col mt-8">
           
           <div className={`relative ${isCollapsed ? 'flex justify-center' : 'px-1'} mb-5`}>
-            {/* Logo diklik akan kembali ke dashboard */}
+            {/* Logo diklik akan kembali ke Company Profile (Landing Page /) */}
             <Link 
-              to="/dashboard"
+              to="/"
               onClick={handleItemClick}
-              className={`flex items-center gap-3 overflow-hidden group ${isCollapsed ? 'justify-center' : ''}`}
+              className={`flex items-center gap-2.5 overflow-hidden group ${isCollapsed ? 'justify-center' : ''}`}
+              title="Kembali ke Halaman Utama"
             >
               <div 
                 className="w-10 h-10 flex items-center justify-center shrink-0 cursor-pointer overflow-hidden transition-all bg-transparent drop-shadow-md group-hover:scale-105"
-                title="PRISMA JASA KONSULINDO"
               >
                 {/* LOGO SIDEBAR: Switch otomatis berdasarkan Dark Mode */}
                 <img src="/PRISMA.PNG" alt="Logo Prisma Light" className="w-full h-full object-contain dark:hidden" />
@@ -206,12 +206,12 @@ export default function Sidebar() {
               </div>
 
               {!isCollapsed && (
-                <div className="whitespace-nowrap transition-opacity duration-200 flex-1 min-w-0">
-                  <h1 className="text-sm font-bold tracking-wide truncate text-slate-800 dark:text-white group-hover:text-amber-500 transition-colors">
-                    PRISMA JASA
+                <div className="transition-opacity duration-200 flex-1 min-w-0 pt-0.5">
+                  <h1 className="text-sm font-extrabold tracking-widest text-slate-800 dark:text-white group-hover:text-amber-500 transition-colors uppercase leading-none">
+                    PRISMA GROUP
                   </h1>
-                  <p className="text-[10px] truncate text-amber-600 dark:text-amber-500/90 font-bold tracking-widest mt-0.5">
-                    KONSULINDO
+                  <p className="text-[7.5px] text-amber-600 dark:text-amber-500/90 font-bold uppercase tracking-[0.1em] mt-1 break-words leading-tight w-[95%]">
+                    KONSULTAN TEKNIK KONSTRUKSI
                   </p>
                 </div>
               )}

@@ -17,12 +17,11 @@ export default function AddProject() {
     document.title = "Prisma Group - Proyek Baru";
   }, []);
 
-  // Form State Utama Proyek
   const [formData, setFormData] = useState({
     namaProyek: '',
     kategori: '', 
-    kodeKontrak: '',              // Untuk Kontrak Konsultan
-    nomorKontrakKontraktor: '',   // Untuk Kontrak Kontraktor
+    kodeKontrak: '',
+    nomorKontrakKontraktor: '',
     sumberDana: '',
     tahunAnggaran: '', 
     nilaiKontrak: '',
@@ -49,7 +48,6 @@ export default function AddProject() {
     }));
   };
 
-  // --- HANDLER FOTO BANNER ---
   const handleFotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -63,7 +61,6 @@ export default function AddProject() {
     setFotoPreview(null);
   };
 
-  // --- HANDLER DOKUMEN ---
   const handleDokumenChange = (e) => {
     const files = Array.from(e.target.files);
     setDokumenLampiran([...dokumenLampiran, ...files]);
@@ -73,7 +70,6 @@ export default function AddProject() {
     setDokumenLampiran(dokumenLampiran.filter((_, i) => i !== index));
   };
 
-  // --- SUBMIT KE LARAVEL ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -84,8 +80,8 @@ export default function AddProject() {
       
       formDataPayload.append('nama_proyek', formData.namaProyek);
       formDataPayload.append('kategori', formData.kategori);
-      formDataPayload.append('kode_kontrak', formData.kodeKontrak); // Konsultan
-      formDataPayload.append('nomor_kontrak_kontraktor', formData.nomorKontrakKontraktor); // Kontraktor
+      formDataPayload.append('kode_kontrak', formData.kodeKontrak); 
+      formDataPayload.append('nomor_kontrak_kontraktor', formData.nomorKontrakKontraktor);
       formDataPayload.append('sumber_dana', formData.sumberDana);
       formDataPayload.append('tahun_anggaran', formData.tahunAnggaran);
       formDataPayload.append('nilai_kontrak', formData.nilaiKontrak);
@@ -102,17 +98,14 @@ export default function AddProject() {
       formDataPayload.append('deskripsi', formData.deskripsi);
       formDataPayload.append('status', 'Persiapan');
 
-      // Masukkan File Foto
       if (fotoSampul) {
         formDataPayload.append('foto_sampul', fotoSampul);
       }
 
-      // Masukkan File Dokumen Lampiran
       dokumenLampiran.forEach((file) => {
         formDataPayload.append('dokumen_lampiran[]', file);
       });
 
-      // Mengirim Payload ke Laravel
       await api.post('/projects', formDataPayload, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -165,7 +158,6 @@ export default function AddProject() {
         </div>
       </div>
 
-      {/* PEMBERITAHUAN ERROR */}
       {errorMsg && (
         <div className="p-4 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl flex items-start gap-3 text-rose-600 dark:text-rose-400 text-xs font-medium animate-fade-in">
           <AlertCircle className="w-5 h-5 shrink-0" />
@@ -173,7 +165,6 @@ export default function AddProject() {
         </div>
       )}
 
-      {/* PEMBERITAHUAN SUKSES */}
       {submittedSuccess && (
         <div className="p-4 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 rounded-2xl flex items-center gap-3 text-emerald-600 dark:text-emerald-400 text-xs animate-fade-in shadow-sm">
           <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
@@ -181,7 +172,6 @@ export default function AddProject() {
         </div>
       )}
 
-      {/* FORM MANUAL */}
       <form onSubmit={handleSubmit} className="space-y-4">
         
         {/* Section 1: Identitas & Keuangan */}
@@ -199,15 +189,24 @@ export default function AddProject() {
             </div>
             
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Bidang / Kategori <span className="text-rose-500">*</span></label>
-              <select name="kategori" value={formData.kategori} onChange={handleChange} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 transition-colors cursor-pointer appearance-none">
-                <option value="" disabled>Pilih Kategori / Bidang</option>
-                <option value="Infrastruktur Jalan & Jembatan">Infrastruktur Jalan & Jembatan</option>
-                <option value="Gedung & Bangunan Sipil">Gedung & Bangunan Sipil</option>
-                <option value="Sumber Daya Air & Irigasi">Sumber Daya Air & Irigasi</option>
-                <option value="Tata Lingkungan & Sanitasi">Tata Lingkungan & Sanitasi</option>
-                <option value="Preservasi Jalan">Preservasi Jalan</option>
-              </select>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Bidang / Kategori (Sub-Kegiatan) <span className="text-rose-500">*</span></label>
+              <input 
+                type="text" 
+                name="kategori" 
+                required 
+                list="kategori-options"
+                value={formData.kategori} 
+                onChange={handleChange} 
+                placeholder="Pilih atau ketik kategori baru..."
+                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 transition-colors"
+              />
+              <datalist id="kategori-options">
+                <option value="Infrastruktur Jalan & Jembatan" />
+                <option value="Gedung & Bangunan Sipil" />
+                <option value="Sumber Daya Air & Irigasi" />
+                <option value="Tata Lingkungan & Sanitasi" />
+                <option value="Preservasi Jalan" />
+              </datalist>
             </div>
 
             <div className="space-y-1.5">
@@ -239,7 +238,6 @@ export default function AddProject() {
               </div>
             </div>
           </div>
-
         </div>
 
         {/* Section 2: Jadwal & Lokasi */}
@@ -317,7 +315,6 @@ export default function AddProject() {
         {/* Section 4: Uploads */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           
-          {/* CARD 1: FOTO BANNER */}
           <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 p-4 md:p-5 rounded-2xl space-y-4 shadow-sm flex flex-col relative">
             <div className="flex flex-wrap items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-3 gap-2">
               <h2 className="text-sm font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wider flex items-center gap-2">
@@ -353,7 +350,6 @@ export default function AddProject() {
             </div>
           </div>
 
-          {/* CARD 2: DOKUMEN LAMPIRAN */}
           <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 p-4 md:p-5 rounded-2xl space-y-4 shadow-sm flex flex-col relative">
             <div className="flex flex-wrap items-center justify-between border-b border-slate-200 dark:border-slate-700/60 pb-3 gap-2">
               <h2 className="text-sm font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wider flex items-center gap-2">
@@ -396,7 +392,6 @@ export default function AddProject() {
           </div>
         </div>
 
-        {/* Action Submit & Cancel Button */}
         <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 pb-8">
           <button
             type="button"

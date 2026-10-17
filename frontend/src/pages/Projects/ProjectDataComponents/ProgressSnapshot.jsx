@@ -15,12 +15,12 @@ export default function ProgressSnapshot({ progressPlan, progressReal, deviasi, 
       
       <div className={`w-full md:w-2/3 grid ${isGuest ? 'grid-cols-2' : 'grid-cols-3'} gap-2 sm:gap-4`}>
         <div className="bg-slate-50 dark:bg-slate-900/60 p-2.5 md:p-3 rounded-xl border border-slate-200 dark:border-slate-700/50 text-center">
-          <span className="text-[9px] md:text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Plan</span>
-          <p className="text-sm md:text-lg font-mono font-bold text-sky-600 dark:text-sky-400">{progressPlan}%</p>
+          <span className="text-[9px] md:text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Realisasi</span>
+          <p className="text-sm md:text-lg font-mono font-bold text-emerald-600 dark:text-emerald-400">{progressReal}%</p>
         </div>
         <div className="bg-slate-50 dark:bg-slate-900/60 p-2.5 md:p-3 rounded-xl border border-slate-200 dark:border-slate-700/50 text-center">
-          <span className="text-[9px] md:text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Actual</span>
-          <p className="text-sm md:text-lg font-mono font-bold text-emerald-600 dark:text-emerald-400">{progressReal}%</p>
+          <span className="text-[9px] md:text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">Rencana</span>
+          <p className="text-sm md:text-lg font-mono font-bold text-sky-600 dark:text-sky-400">{progressPlan}%</p>
         </div>
         {!isGuest && (
           <div className={`p-2.5 md:p-3 rounded-xl border text-center flex flex-col justify-center ${isActuallyDelayed ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30' : 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30'}`}>

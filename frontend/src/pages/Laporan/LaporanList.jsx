@@ -409,13 +409,13 @@ export default function LaporanList() {
         <div className="flex flex-wrap gap-2 animate-fade-in -mt-2">
           {filters.status !== 'Semua' && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-500 text-[10px] font-bold rounded-lg border border-amber-200 dark:border-amber-500/20">
-              Status: {getStatusText(filters.status)}
+              {getStatusText(filters.status)}
               <button onClick={() => clearFilter('status')} className="hover:bg-amber-200 dark:hover:bg-amber-500/30 p-0.5 rounded-full transition-colors"><X className="w-3 h-3"/></button>
             </span>
           )}
           {(filters.startDate || filters.endDate) && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-bold rounded-lg border border-blue-200 dark:border-blue-500/20">
-              Tanggal: {filters.startDate || 'Awal'} s/d {filters.endDate || 'Akhir'}
+              {filters.startDate || 'Awal'} s/d {filters.endDate || 'Akhir'}
               <button onClick={() => clearFilter('tanggal')} className="hover:bg-blue-200 dark:hover:bg-blue-500/30 p-0.5 rounded-full transition-colors"><X className="w-3 h-3"/></button>
             </span>
           )}
@@ -718,7 +718,7 @@ export default function LaporanList() {
       <div className="bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/40 rounded-xl p-4 text-xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row sm:items-center gap-4 shadow-sm mt-2">
         <span className="font-semibold text-slate-700 dark:text-slate-300 shrink-0">Status Laporan:</span>
         <div className="flex flex-wrap gap-x-4 gap-y-2">
-          <span className="flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-rose-500"/> Laporan Baru (Belum Anda Buka)</span>
+          <span className="flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-rose-500"/> Laporan Baru</span>
           <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div> Pending / Menunggu</span>
           <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div> Telah Disetujui</span>
           <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-rose-500"></div> Ditolak / Perbaikan</span>

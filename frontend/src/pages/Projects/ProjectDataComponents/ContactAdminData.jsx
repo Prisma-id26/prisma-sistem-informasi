@@ -16,7 +16,6 @@ export default function ContractAdminData({ project, isEditMode, editFormData, h
         </div>
         
         <div className="space-y-3 text-xs">
-          {/* ROW 1: NAMA & KATEGORI (DISISIPKAN DI SINI) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="bg-slate-50 dark:bg-slate-900/60 p-3.5 md:p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
               <span className="text-slate-500 dark:text-slate-400 text-[10px] font-medium block mb-1">Nama Paket Pekerjaan</span>
@@ -24,17 +23,31 @@ export default function ContractAdminData({ project, isEditMode, editFormData, h
             </div>
             
             <div className="bg-slate-50 dark:bg-slate-900/60 p-3.5 md:p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
-               <span className="text-slate-500 dark:text-slate-400 text-[10px] font-medium block mb-1">Kategori Proyek</span>
-               {isEditMode ? (
-                 <select name="kategori" value={editFormData.kategori || ''} onChange={handleMainChange} className="w-full bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-500/50 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
-                    <option value="">Belum Ditentukan</option>
-                    <option value="Infrastruktur Jalan & Jembatan">Infrastruktur Jalan & Jembatan</option>
-                    <option value="Gedung & Bangunan Sipil">Gedung & Bangunan Sipil</option>
-                    <option value="Sumber Daya Air & Irigasi">Sumber Daya Air & Irigasi</option>
-                    <option value="Tata Lingkungan & Sanitasi">Tata Lingkungan & Sanitasi</option>
-                    <option value="Preservasi Jalan">Preservasi Jalan</option>
-                 </select>
-               ) : <p className="font-semibold text-slate-800 dark:text-white truncate">{project.kategori || 'Belum Ditentukan'}</p>}
+              <span className="text-slate-500 dark:text-slate-400 text-[10px] font-medium block mb-1">Sub Kegiatan</span>
+              {isEditMode ? (
+                <>
+                  <input 
+                    type="text" 
+                    name="kategori" 
+                    list="kategori-options"
+                    value={editFormData.kategori || ''} 
+                    onChange={handleMainChange} 
+                    placeholder="Pilih atau ketik manual..."
+                    className="w-full bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-500/50 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors shadow-inner"
+                  />
+                  <datalist id="kategori-options">
+                    <option value="Infrastruktur Jalan & Jembatan" />
+                    <option value="Gedung & Bangunan Sipil" />
+                    <option value="Sumber Daya Air & Irigasi" />
+                    <option value="Tata Lingkungan & Sanitasi" />
+                    <option value="Preservasi Jalan" />
+                  </datalist>
+                </>
+              ) : (
+                <p className="font-semibold text-slate-800 dark:text-white truncate">
+                  {project.kategori || 'Belum Ditentukan'}
+                </p>
+              )}
             </div>
           </div>
 
