@@ -35,18 +35,26 @@ export default function Login({ onLoginSuccess }) {
     }
   };
 
-  // FUNGSI UNTUK MEMBUKA EMAIL LANGSUNG KE GMAIL WEB
+  // FUNGSI UNTUK MENDETEKSI DEVICE & MEMBUKA EMAIL
   const handleEmailRequest = (e) => {
     e.preventDefault();
-    const to = "Prismagroup2026@gmail.com";
+    const to = "prismagroup2026@gmail.com";
     const subject = encodeURIComponent("Pengajuan Pembuatan Akun Akses");
     const body = encodeURIComponent(
-      "Halo Administrator,\n\nSaya ingin mengajukan pembuatan akun untuk mengakses sistem pengawasan proyek Prisma Group.\n\nNama Lengkap: \nInstansi / Perusahaan: \nProyek Terkait: \n\nTerima kasih."
+      "Halo Prisma Group,\n\nSaya ingin mengajukan pembuatan akun untuk mengakses sistem pengawasan proyek Prisma Group.\n\nNama Lengkap: \nInstansi / Perusahaan: \nProyek Terkait: \n\nTerima kasih."
     );
-    
-    // Buka Compose Gmail di Tab Baru
-    const gmailLink = `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${body}`;
-    window.open(gmailLink, '_blank');
+
+    // Cek apakah user menggunakan HP/Tablet (Android/iOS)
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    if (isMobile) {
+      // Jika di HP, buka aplikasi email bawaan (Gmail app, Apple Mail, dll)
+      window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+    } else {
+      // Jika di Laptop/Desktop, buka Webmail Gmail di tab baru
+      const gmailWebUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${body}`;
+      window.open(gmailWebUrl, '_blank');
+    }
   };
 
   return (
@@ -56,7 +64,6 @@ export default function Login({ onLoginSuccess }) {
         <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] dark:bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:24px_24px] opacity-30 dark:opacity-20 transition-colors" />
 
         <div className="relative z-10 flex items-center gap-3">
-          {/* LOGO: Switch otomatis berdasarkan Dark Mode */}
           <img 
             src="/PRISMA.PNG" 
             alt="Prisma Group Logo Light" 
@@ -74,7 +81,6 @@ export default function Login({ onLoginSuccess }) {
         </div>
 
         <div className="relative z-10 space-y-4 my-auto">
-          {/* BADGE: Warna Emerald / Hijau */}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider shadow-sm">
             <ShieldCheck className="w-4 h-4" /> Sistem Manajemen Proyek Terpadu
           </div>
@@ -83,7 +89,6 @@ export default function Login({ onLoginSuccess }) {
             Pantau Progres & Pengawasan Lapangan Secara Real-Time
           </h2>
           
-          {/* DESKRIPSI: Warna Amber */}
           <p className="text-amber-600 dark:text-amber-500 text-sm max-w-md leading-relaxed font-semibold">
             Kelola volume progres, laporan harian, matriks Kurva S, hingga pemetaan GIS lokasi proyek secara terpusat, aman, dan presisi.
           </p>
@@ -101,7 +106,6 @@ export default function Login({ onLoginSuccess }) {
 
           <div className="text-center space-y-2">
             <div className="lg:hidden flex justify-center mb-4">
-               {/* LOGO MOBILE: Switch otomatis berdasarkan Dark Mode */}
                <img src="/PRISMA.PNG" alt="Prisma Group Logo Light" className="h-14 w-auto object-contain drop-shadow-sm dark:hidden" />
                <img src="/PRISMA_NEGATIF.PNG" alt="Prisma Group Logo Dark" className="h-14 w-auto object-contain drop-shadow-sm hidden dark:block" />
             </div>
@@ -161,7 +165,6 @@ export default function Login({ onLoginSuccess }) {
                 Sistem ini tertutup untuk publik. Klien atau Pengawas yang belum memiliki akses dapat mengajukan pembuatan akun ke Administrator.
               </p>
               
-              {/* TOMBOL PENGAJUAN AKUN DIPERBARUI */}
               <button 
                 type="button"
                 onClick={handleEmailRequest}
