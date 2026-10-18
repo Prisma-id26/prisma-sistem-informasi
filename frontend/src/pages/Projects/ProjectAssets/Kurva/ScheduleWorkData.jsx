@@ -434,8 +434,8 @@ export default function ScheduleWorkData({
               </tr>
 
               {/* 4. BARIS DEVIASI & KOLOM KUMULATIF (SUM DEVIASI) */}
-              <tr className="bg-amber-50 dark:bg-amber-500/5 border-t border-amber-200 dark:border-amber-500/20">
-                <td colSpan="3" className="p-2 text-right font-extrabold text-amber-700 dark:text-amber-400 uppercase text-[10px] border-r border-amber-200 dark:border-amber-500/20">
+              <tr className="bg-rose-50 dark:bg-rose-500/5 border-t border-rose-200 dark:border-rose-500/20">
+                <td colSpan="3" className="p-2 text-right font-extrabold text-rose-700 dark:text-rose-400 uppercase text-[10px] border-r border-rose-200 dark:border-rose-500/20">
                   Deviasi
                 </td>
                 {weeksArray.map(w => {
