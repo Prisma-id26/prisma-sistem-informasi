@@ -28,10 +28,17 @@ class CompanyProfileController extends Controller
         $profile = CompanyProfile::firstOrCreate(['id' => 1]);
         $data = $request->only(['hero_title', 'hero_subtitle', 'btn_text']);
 
-        if ($request->hasFile('hero_image')) {
-            // Hapus gambar lama jika ada
+        // LOGIKA BARU: Jika ada instruksi hapus gambar dari frontend
+        if ($request->has('remove_image') && $request->remove_image == 'true') {
             if ($profile->hero_image) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($profile->hero_image);
+                Storage::disk('public')->delete($profile->hero_image);
+            }
+            $data['hero_image'] = null;
+        }
+
+        if ($request->hasFile('hero_image')) {
+            if ($profile->hero_image) {
+                Storage::disk('public')->delete($profile->hero_image);
             }
             $data['hero_image'] = $request->file('hero_image')->store('company_profile/hero', 'public');
         }
@@ -48,7 +55,7 @@ class CompanyProfileController extends Controller
     }
 
     // ==========================================
-    // CRUD LAYANAN (DENGAN UPLOAD GAMBAR)
+    // CRUD LAYANAN
     // ==========================================
     public function getServices() {
         return response()->json(Service::all());
@@ -57,7 +64,6 @@ class CompanyProfileController extends Controller
     public function storeService(Request $request) {
         $data = $request->except('image');
 
-        // Cek jika ada file gambar yang diunggah
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('company_profile/services', 'public');
             $data['image'] = $path;
@@ -69,7 +75,6 @@ class CompanyProfileController extends Controller
 
     public function destroyService($id) {
         $service = Service::findOrFail($id);
-        // Hapus file fisik jika ada
         if ($service->image) {
             Storage::disk('public')->delete($service->image);
         }
@@ -78,7 +83,7 @@ class CompanyProfileController extends Controller
     }
 
     // ==========================================
-    // CRUD EVENT (DENGAN UPLOAD GAMBAR)
+    // CRUD EVENT
     // ==========================================
     public function getEvents() {
         return response()->json(Event::orderBy('date', 'desc')->get());
@@ -87,7 +92,6 @@ class CompanyProfileController extends Controller
     public function storeEvent(Request $request) {
         $data = $request->except('image');
 
-        // Cek jika ada file gambar yang diunggah
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('company_profile/events', 'public');
             $data['image'] = $path;
@@ -99,7 +103,6 @@ class CompanyProfileController extends Controller
 
     public function destroyEvent($id) {
         $event = Event::findOrFail($id);
-        // Hapus file fisik jika ada
         if ($event->image) {
             Storage::disk('public')->delete($event->image);
         }

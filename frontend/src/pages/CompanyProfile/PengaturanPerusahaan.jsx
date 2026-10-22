@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutTemplate, Briefcase, CalendarDays, Contact2, 
-  Save, Plus, Trash2, Loader2, CheckCircle2, X, AlertCircle, ImagePlus, Globe 
+  Save, Plus, Trash2, Loader2, CheckCircle2, X, AlertCircle, ImagePlus, Globe, Edit3 
 } from 'lucide-react';
 import api from '../../api';
 
@@ -10,11 +10,13 @@ export default function PengaturanPerusahaan() {
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState({ type: '', text: '' });
 
-  const [landingData, setLandingData] = useState({ hero_title: '', hero_subtitle: '', btn_text: '', hero_image: null });
+  // Ditambah state current_hero_image untuk preview
+  const [landingData, setLandingData] = useState({ hero_title: '', hero_subtitle: '', btn_text: '', current_hero_image: null, hero_image: null });
   const [contactData, setContactData] = useState({ email: '', phone: '', website: '', address: '' });
   const [services, setServices] = useState([]);
   const [events, setEvents] = useState([]);
 
+  const [isLandingModalOpen, setIsLandingModalOpen] = useState(false);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,6 +24,7 @@ export default function PengaturanPerusahaan() {
   const [serviceForm, setServiceForm] = useState({ title: '', description: '', image: null });
   const [eventForm, setEventForm] = useState({ title: '', category: 'Berita Proyek', date: '', status: 'Diterbitkan', image: null });
 
+  // Keamanan pemuatan gambar URL
   const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
 
   useEffect(() => {
@@ -38,6 +41,7 @@ export default function PengaturanPerusahaan() {
           hero_title: resPublic.data.profile.hero_title || '',
           hero_subtitle: resPublic.data.profile.hero_subtitle || '',
           btn_text: resPublic.data.profile.btn_text || '',
+          current_hero_image: resPublic.data.profile.hero_image || null,
           hero_image: null 
         });
         setContactData({
@@ -65,7 +69,9 @@ export default function PengaturanPerusahaan() {
     setTimeout(() => setMessage({ type: '', text: '' }), 3000);
   };
 
-  const handleSaveLanding = async () => {
+  // --- FUNGSI UPDATE & HAPUS LANDING PAGE ---
+  const handleSaveLanding = async (e) => {
+    e.preventDefault();
     setIsSubmitting(true);
     try {
       const formData = new FormData();
@@ -80,7 +86,28 @@ export default function PengaturanPerusahaan() {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       showMessage('success', 'Landing Page berhasil diperbarui!');
+      setIsLandingModalOpen(false);
+      fetchAllData();
     } catch (err) { showMessage('error', 'Gagal menyimpan Landing Page.'); }
+    setIsSubmitting(false);
+  };
+
+  const handleDeleteLanding = async () => {
+    if(!window.confirm('Yakin ingin menghapus kustomisasi Landing Page (kembali ke default)?')) return;
+    setIsSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('hero_title', '');
+      formData.append('hero_subtitle', '');
+      formData.append('btn_text', '');
+      formData.append('remove_image', 'true');
+
+      await api.post('/cms/landing-page', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      showMessage('success', 'Landing Page berhasil direset ke Default!');
+      fetchAllData();
+    } catch (err) { showMessage('error', 'Gagal menghapus Landing Page.'); }
     setIsSubmitting(false);
   };
 
@@ -103,11 +130,7 @@ export default function PengaturanPerusahaan() {
       if (serviceForm.image) {
         formData.append('image', serviceForm.image);
       }
-
-      await api.post('/cms/services', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      
+      await api.post('/cms/services', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       setServiceForm({ title: '', description: '', image: null });
       setIsServiceModalOpen(false);
       fetchAllData();
@@ -137,11 +160,7 @@ export default function PengaturanPerusahaan() {
       if (eventForm.image) {
         formData.append('image', eventForm.image);
       }
-
-      await api.post('/cms/events', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-
+      await api.post('/cms/events', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       setEventForm({ title: '', category: 'Berita Proyek', date: '', status: 'Diterbitkan', image: null });
       setIsEventModalOpen(false);
       fetchAllData();
@@ -211,34 +230,45 @@ export default function PengaturanPerusahaan() {
         ))}
       </div>
 
-      {/* --- KONTEN LANDING PAGE --- */}
+      {/* --- KONTEN LANDING PAGE (SEKARANG DENGAN PREVIEW CARD SEPERTI LAYANAN) --- */}
       {activeTab === 'landing' && (
         <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-6 shadow-sm animate-fade-in">
-          <h2 className="text-lg font-extrabold text-slate-800 dark:text-white mb-6 flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 pb-4">
-            <LayoutTemplate className="w-5 h-5 text-amber-500" /> Teks Landing Page
-          </h2>
-          <div className="space-y-5">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Label / Badge</label>
-              <input type="text" value={landingData.btn_text} onChange={e => setLandingData({...landingData, btn_text: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 dark:text-white focus:ring-2 focus:ring-amber-500" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Judul Utama (Hero Title)</label>
-              <input type="text" value={landingData.hero_title} onChange={e => setLandingData({...landingData, hero_title: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 dark:text-white focus:ring-2 focus:ring-amber-500" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Deskripsi Singkat</label>
-              <textarea rows="4" value={landingData.hero_subtitle} onChange={e => setLandingData({...landingData, hero_subtitle: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 dark:text-white focus:ring-2 focus:ring-amber-500 resize-none"></textarea>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Gambar Utama (Hero Image) - Opsional</label>
-              <input type="file" accept="image/*" onChange={e => setLandingData({...landingData, hero_image: e.target.files[0]})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-4 py-2 text-sm text-slate-800 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-amber-50 file:text-amber-600 hover:file:bg-amber-100" />
-            </div>
-            <div className="pt-4 flex justify-end">
-              <button onClick={handleSaveLanding} disabled={isSubmitting} className="flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-md disabled:opacity-50">
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>} Simpan Landing Page
+          <div className="flex items-center justify-between mb-6 border-b border-slate-100 dark:border-slate-700 pb-4">
+            <h2 className="text-lg font-extrabold text-slate-800 dark:text-white flex items-center gap-2">
+              <LayoutTemplate className="w-5 h-5 text-amber-500" /> Landing Page (Hero)
+            </h2>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setIsLandingModalOpen(true)} className="flex items-center gap-1.5 px-4 py-2 bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 font-bold rounded-xl border border-blue-200 dark:border-blue-500/30 text-xs shadow-sm hover:scale-95 transition-transform">
+                <Edit3 className="w-4 h-4" /> Edit
+              </button>
+              <button onClick={handleDeleteLanding} className="flex items-center gap-1.5 px-4 py-2 bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400 font-bold rounded-xl border border-rose-200 dark:border-rose-500/30 text-xs shadow-sm hover:scale-95 transition-transform">
+                <Trash2 className="w-4 h-4" /> Hapus
               </button>
             </div>
+          </div>
+          
+          {/* Card Preview Landing Page */}
+          <div className="flex flex-col md:flex-row gap-6 p-5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-2xl transition-all hover:border-amber-400/50">
+             <div className="w-full md:w-1/3 h-48 bg-slate-200 dark:bg-slate-800 rounded-xl overflow-hidden border border-slate-300 dark:border-slate-600 flex items-center justify-center relative">
+                 {landingData.current_hero_image ? (
+                    <img src={`${baseUrl}/storage/${landingData.current_hero_image}`} className="w-full h-full object-cover" alt="Hero Banner" />
+                 ) : (
+                    <ImagePlus className="w-8 h-8 text-slate-400" />
+                 )}
+             </div>
+             <div className="flex-1 space-y-3 flex flex-col justify-center">
+                <div>
+                   <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-200 dark:border-emerald-500/30 uppercase tracking-wider shadow-sm">
+                     {landingData.btn_text || 'Default: Sistem Manajemen...'}
+                   </span>
+                </div>
+                <h3 className="text-2xl font-extrabold text-slate-800 dark:text-white leading-snug">
+                  {landingData.hero_title || 'Default: Pantau Progres & Pengawasan Lapangan Secara Real-Time'}
+                </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                  {landingData.hero_subtitle || 'Default: Kelola volume progres, laporan harian, matriks Kurva S, hingga pemetaan GIS...'}
+                </p>
+             </div>
           </div>
         </div>
       )}
@@ -350,6 +380,44 @@ export default function PengaturanPerusahaan() {
             <button onClick={handleSaveContact} disabled={isSubmitting} className="flex items-center gap-2 px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-md disabled:opacity-50">
               {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>} Simpan Kontak
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL: EDIT LANDING PAGE BARU */}
+      {/* ========================================================= */}
+      {isLandingModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-700">
+            <div className="flex justify-between items-center p-5 border-b border-slate-200 dark:border-slate-700">
+              <h3 className="font-extrabold text-slate-800 dark:text-white">Edit Konten Landing Page</h3>
+              <button onClick={() => setIsLandingModalOpen(false)}><X className="w-5 h-5 text-slate-400 hover:text-rose-500" /></button>
+            </div>
+            <form onSubmit={handleSaveLanding} className="p-6 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Label / Badge</label>
+                <input type="text" value={landingData.btn_text} onChange={e => setLandingData({...landingData, btn_text: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 dark:text-white focus:ring-2 focus:ring-amber-500" placeholder="Kosongkan untuk Default..." />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Judul Utama (Hero Title)</label>
+                <input type="text" value={landingData.hero_title} onChange={e => setLandingData({...landingData, hero_title: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 dark:text-white focus:ring-2 focus:ring-amber-500" placeholder="Kosongkan untuk Default..." />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Deskripsi Singkat</label>
+                <textarea rows="4" value={landingData.hero_subtitle} onChange={e => setLandingData({...landingData, hero_subtitle: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 dark:text-white focus:ring-2 focus:ring-amber-500 resize-none" placeholder="Kosongkan untuk Default..."></textarea>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Upload Gambar Baru (Opsional)</label>
+                <input type="file" accept="image/*" onChange={e => setLandingData({...landingData, hero_image: e.target.files[0]})} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-4 py-2 text-sm text-slate-800 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-amber-50 file:text-amber-600 hover:file:bg-amber-100" />
+              </div>
+              <div className="flex justify-end gap-3 pt-6">
+                <button type="button" onClick={() => setIsLandingModalOpen(false)} className="px-5 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs">Batal</button>
+                <button type="submit" disabled={isSubmitting} className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-2">
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin"/> : 'Simpan'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
