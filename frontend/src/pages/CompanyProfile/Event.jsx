@@ -2,6 +2,8 @@ import React from 'react';
 import { Calendar, CalendarDays } from 'lucide-react';
 
 export default function Event({ events = [] }) {
+  const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
+
   return (
     <section className="py-20 bg-slate-50 dark:bg-slate-900 transition-colors">
       <div className="container mx-auto px-6 md:px-12">
@@ -20,7 +22,7 @@ export default function Event({ events = [] }) {
                 <div className="w-full sm:w-40 h-40 bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden transition-colors">
                   {item.image ? (
                     <img 
-                      src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/storage/${item.image}`} 
+                      src={`${baseUrl}/storage/${item.image}`} 
                       alt={item.title} 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                       onError={(e) => { e.target.style.display = 'none'; }}

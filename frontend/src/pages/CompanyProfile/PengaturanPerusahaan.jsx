@@ -22,6 +22,8 @@ export default function PengaturanPerusahaan() {
   const [serviceForm, setServiceForm] = useState({ title: '', description: '', image: null });
   const [eventForm, setEventForm] = useState({ title: '', category: 'Berita Proyek', date: '', status: 'Diterbitkan', image: null });
 
+  const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
+
   useEffect(() => {
     document.title = "Prisma Group - Pengaturan Profil";
     fetchAllData();
@@ -258,7 +260,7 @@ export default function PengaturanPerusahaan() {
               <div key={item.id} className="flex items-start gap-4 p-5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-2xl relative group">
                 <div className="w-16 h-16 shrink-0 rounded-xl bg-slate-200 dark:bg-slate-800 overflow-hidden border border-slate-300 dark:border-slate-600 flex items-center justify-center">
                    {item.image ? (
-                     <img src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/storage/${item.image}`} className="w-full h-full object-cover" alt="" />
+                     <img src={`${baseUrl}/storage/${item.image}`} className="w-full h-full object-cover" alt="" />
                    ) : (
                      <ImagePlus className="w-6 h-6 text-slate-400" />
                    )}
@@ -293,7 +295,7 @@ export default function PengaturanPerusahaan() {
               <div key={event.id} className="flex flex-col md:flex-row items-center gap-4 p-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-xl group relative">
                 <div className="w-full md:w-20 h-20 shrink-0 rounded-xl bg-slate-200 dark:bg-slate-800 overflow-hidden border border-slate-300 dark:border-slate-600 flex items-center justify-center">
                    {event.image ? (
-                     <img src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/storage/${event.image}`} className="w-full h-full object-cover" alt="" />
+                     <img src={`${baseUrl}/storage/${event.image}`} className="w-full h-full object-cover" alt="" />
                    ) : (
                      <ImagePlus className="w-6 h-6 text-slate-400" />
                    )}

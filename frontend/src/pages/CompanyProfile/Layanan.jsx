@@ -2,6 +2,8 @@ import React from 'react';
 import { Briefcase } from 'lucide-react';
 
 export default function Layanan({ services = [] }) {
+  const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
+
   return (
     <section className="py-20 bg-white dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 transition-colors">
       <div className="container mx-auto px-6 md:px-12">
@@ -18,7 +20,7 @@ export default function Layanan({ services = [] }) {
               <div key={srv.id} className="bg-slate-50 dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700/60 hover:border-amber-500 dark:hover:border-amber-500 hover:shadow-2xl hover:shadow-amber-500/10 transition-all group flex flex-col">
                 <div className="w-full h-48 mb-6 overflow-hidden rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-500/20 flex items-center justify-center relative">
                   {srv.image ? (
-                     <img src={`${import.meta.env.VITE_API_URL.replace('/api', '')}/storage/${srv.image}`} alt={srv.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                     <img src={`${baseUrl}/storage/${srv.image}`} alt={srv.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                   ) : (
                      <>
                         <img src="/PRISMA.PNG" alt="Prisma Logo Light" className="h-16 w-auto object-contain opacity-40 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500 dark:hidden" />

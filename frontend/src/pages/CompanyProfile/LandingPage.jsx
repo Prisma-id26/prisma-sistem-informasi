@@ -5,7 +5,9 @@ export default function LandingPage({ profile }) {
   const title = profile?.hero_title || 'Pantau Progres & Pengawasan Lapangan Secara Real-Time';
   const subtitle = profile?.hero_subtitle || 'Kelola volume progres, laporan harian, matriks Kurva S, hingga pemetaan GIS lokasi proyek secara terpusat, aman, dan presisi.';
   const btnText = profile?.btn_text || 'Sistem Manajemen Proyek Terpadu';
-  const heroImage = profile?.hero_image ? `${import.meta.env.VITE_API_URL.replace('/api', '')}/storage/${profile.hero_image}` : null;
+  
+  const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
+  const heroImage = profile?.hero_image ? `${baseUrl}/storage/${profile.hero_image}` : null;
 
   return (
     <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden flex items-center justify-center min-h-[90vh]">
@@ -15,7 +17,6 @@ export default function LandingPage({ profile }) {
       <div className={`container mx-auto px-6 md:px-12 relative z-10 flex flex-col ${heroImage ? 'lg:flex-row' : ''} items-center gap-12`}>
         
         <div className={`animate-fade-in ${heroImage ? 'lg:w-1/2 text-center lg:text-left' : 'text-center max-w-5xl mx-auto'}`}>
-          {/* BADGE: Menggunakan warna Hijau (Emerald) */}
           <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold uppercase tracking-widest shadow-sm mb-6 ${heroImage ? 'mx-auto lg:mx-0' : ''}`}>
             <ShieldCheck className="w-4 h-4" /> {btnText}
           </div>
@@ -24,13 +25,12 @@ export default function LandingPage({ profile }) {
             {title}
           </h1>
           
-          {/* SUBTITLE: Menggunakan warna Amber */}
           <p className={`text-base md:text-xl text-amber-600 dark:text-amber-500 leading-relaxed font-semibold mb-10 ${heroImage ? 'max-w-xl mx-auto lg:mx-0' : 'max-w-3xl mx-auto'}`}>
             {subtitle}
           </p>
 
           <div className={`flex flex-col sm:flex-row items-center gap-4 ${heroImage ? 'justify-center lg:justify-start' : 'justify-center'}`}>
-            <button onClick={() => document.getElementById('layanan').scrollIntoView({ behavior: 'smooth' })} className="w-full sm:w-auto px-8 py-4 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-amber-500 dark:hover:border-amber-500 hover:text-amber-600 dark:hover:text-amber-400 text-slate-700 dark:text-white font-bold rounded-full transition-all shadow-sm active:scale-95 text-sm">
+            <button onClick={() => document.getElementById('layanan')?.scrollIntoView({ behavior: 'smooth' })} className="w-full sm:w-auto px-8 py-4 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-amber-500 dark:hover:border-amber-500 hover:text-amber-600 dark:hover:text-amber-400 text-slate-700 dark:text-white font-bold rounded-full transition-all shadow-sm active:scale-95 text-sm">
               Lihat Layanan Kami
             </button>
           </div>
