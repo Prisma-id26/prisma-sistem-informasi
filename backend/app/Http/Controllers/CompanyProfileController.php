@@ -27,44 +27,30 @@ class CompanyProfileController extends Controller
     {
         try {
             $profile = CompanyProfile::firstOrCreate(['id' => 1]);
+            $data = [];
 
-            $data = $request->only(['hero_title', 'hero_subtitle', 'btn_text']);
+            // LOGIKA BARU: Hanya masukkan ke array update JIKA user mengisi datanya
+            if ($request->filled('hero_title')) $data['hero_title'] = $request->hero_title;
+            if ($request->filled('hero_subtitle')) $data['hero_subtitle'] = $request->hero_subtitle;
+            if ($request->filled('btn_text')) $data['btn_text'] = $request->btn_text;
 
-            // Mencegah error SQL jika kolom di database tidak boleh NULL (Laravel otomatis mengubah '' menjadi null)
-            $data['hero_title'] = $data['hero_title'] ?? '';
-            $data['hero_subtitle'] = $data['hero_subtitle'] ?? '';
-            $data['btn_text'] = $data['btn_text'] ?? '';
-
-            // Hapus gambar lama jika tombol hapus diklik
             if ($request->has('remove_image') && $request->remove_image == 'true') {
-                if ($profile->hero_image) {
-                    Storage::disk('public')->delete($profile->hero_image);
-                }
+                if ($profile->hero_image) Storage::disk('public')->delete($profile->hero_image);
                 $data['hero_image'] = null;
             }
 
-            // Jika ada upload gambar baru
             if ($request->hasFile('hero_image')) {
-                if ($profile->hero_image) {
-                    Storage::disk('public')->delete($profile->hero_image);
-                }
+                if ($profile->hero_image) Storage::disk('public')->delete($profile->hero_image);
                 $data['hero_image'] = $request->file('hero_image')->store('company_profile/hero', 'public');
             }
 
-            $profile->update($data);
+            if (!empty($data)) {
+                $profile->update($data);
+            }
 
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Landing Page berhasil diperbarui',
-                'data' => $profile
-            ]);
-
+            return response()->json(['status' => 'success', 'message' => 'Landing Page diperbarui', 'data' => $profile]);
         } catch (\Exception $e) {
-            // Menangkap pesan error asli agar tampil di notifikasi frontend
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Error Server: ' . $e->getMessage()
-            ], 500);
+            return response()->json(['status' => 'error', 'message' => 'Error Server: ' . $e->getMessage()], 500);
         }
     }
 
@@ -72,8 +58,21 @@ class CompanyProfileController extends Controller
     {
         try {
             $profile = CompanyProfile::firstOrCreate(['id' => 1]);
-            $profile->update($request->only(['email', 'phone', 'website', 'address']));
-            return response()->json(['message' => 'Kontak diperbarui', 'data' => $profile]);
+            $data = [];
+
+            // LOGIKA BARU: Sama seperti Landing Page, perbarui kolom yang diisi saja
+            $fields = ['email', 'phone', 'website', 'address', 'operasional_senin_jumat', 'operasional_sabtu', 'operasional_minggu'];
+            foreach ($fields as $field) {
+                if ($request->filled($field)) {
+                    $data[$field] = $request->$field;
+                }
+            }
+
+            if (!empty($data)) {
+                $profile->update($data);
+            }
+
+            return response()->json(['message' => 'Kontak & Jam Operasional diperbarui', 'data' => $profile]);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Error Server: ' . $e->getMessage()], 500);
         }
@@ -88,21 +87,16 @@ class CompanyProfileController extends Controller
 
     public function storeService(Request $request) {
         $data = $request->except('image');
-
         if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('company_profile/services', 'public');
-            $data['image'] = $path;
+            $data['image'] = $request->file('image')->store('company_profile/services', 'public');
         }
-
         $service = Service::create($data);
         return response()->json(['message' => 'Layanan ditambahkan', 'data' => $service]);
     }
 
     public function destroyService($id) {
         $service = Service::findOrFail($id);
-        if ($service->image) {
-            Storage::disk('public')->delete($service->image);
-        }
+        if ($service->image) Storage::disk('public')->delete($service->image);
         $service->delete();
         return response()->json(['message' => 'Layanan dihapus']);
     }
@@ -116,21 +110,16 @@ class CompanyProfileController extends Controller
 
     public function storeEvent(Request $request) {
         $data = $request->except('image');
-
         if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('company_profile/events', 'public');
-            $data['image'] = $path;
+            $data['image'] = $request->file('image')->store('company_profile/events', 'public');
         }
-
         $event = Event::create($data);
         return response()->json(['message' => 'Event ditambahkan', 'data' => $event]);
     }
 
     public function destroyEvent($id) {
         $event = Event::findOrFail($id);
-        if ($event->image) {
-            Storage::disk('public')->delete($event->image);
-        }
+        if ($event->image) Storage::disk('public')->delete($event->image);
         $event->delete();
         return response()->json(['message' => 'Event dihapus']);
     }

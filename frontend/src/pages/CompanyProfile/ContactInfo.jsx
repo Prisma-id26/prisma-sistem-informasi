@@ -5,6 +5,11 @@ export default function ContactInfo({ profile }) {
   const email = profile?.email || 'admin@prisma-group.com';
   const phone = profile?.phone || '+62 811-2345-6789';
   const address = profile?.address || 'Jl. Ahmad Yani KM 5, Banjarmasin, Kalimantan Selatan, Indonesia';
+  
+  // Mengambil jadwal langsung dari database
+  const opSeninJumat = profile?.operasional_senin_jumat || '08:00 - 17:00 WITA';
+  const opSabtu = profile?.operasional_sabtu || '08:00 - 13:00 WITA';
+  const opMinggu = profile?.operasional_minggu || 'Tutup';
 
   return (
     <section className="py-20 bg-white dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-800">
@@ -69,15 +74,15 @@ export default function ContactInfo({ profile }) {
             <div className="space-y-4">
               <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700/60 pb-4">
                 <span className="text-sm font-bold text-slate-600 dark:text-slate-400">Senin - Jumat</span>
-                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5"><Clock className="w-4 h-4"/> 08:00 - 17:00 WITA</span>
+                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5"><Clock className="w-4 h-4"/> {opSeninJumat}</span>
               </div>
               <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700/60 pb-4">
                 <span className="text-sm font-bold text-slate-600 dark:text-slate-400">Sabtu</span>
-                <span className="text-sm font-bold text-amber-600 dark:text-amber-500 flex items-center gap-1.5"><Clock className="w-4 h-4"/> 08:00 - 13:00 WITA</span>
+                <span className="text-sm font-bold text-amber-600 dark:text-amber-500 flex items-center gap-1.5"><Clock className="w-4 h-4"/> {opSabtu}</span>
               </div>
               <div className="flex justify-between items-center pb-2">
                 <span className="text-sm font-bold text-slate-600 dark:text-slate-400">Minggu / Libur Nasional</span>
-                <span className="text-sm font-bold text-rose-500 flex items-center gap-1.5">Tutup</span>
+                <span className="text-sm font-bold text-rose-500 flex items-center gap-1.5">{opMinggu}</span>
               </div>
             </div>
           </div>
