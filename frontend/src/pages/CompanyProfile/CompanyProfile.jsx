@@ -130,7 +130,7 @@ export default function CompanyProfile() {
       <footer className="bg-slate-900 border-t border-slate-800 py-10 text-center text-slate-400 text-sm">
         <div className="container mx-auto px-6">
           <img src="/PRISMA_NEGATIF.PNG" alt="Prisma Group" className="h-14 w-auto mx-auto mb-5 drop-shadow-md object-contain" />
-          <p className="font-medium">&copy; {new Date().getFullYear()} Prisma Jasa Konsulindo. All rights reserved.</p>
+          <p className="font-medium">&copy; {new Date().getFullYear()} Prisma Group. All rights reserved.</p>
         </div>
       </footer>
     </div>

@@ -95,7 +95,7 @@ export default function Login({ onLoginSuccess }) {
         </div>
 
         <div className="relative z-10 text-xs font-bold text-slate-400 dark:text-slate-500 border-t border-slate-200 dark:border-slate-800 pt-4 flex justify-between">
-          <span>&copy; {new Date().getFullYear()} Prisma Jasa Konsulindo</span>
+          <span>&copy; {new Date().getFullYear()} Prisma Group</span>
           <span>Protected Enterprise System</span>
         </div>
       </div>
