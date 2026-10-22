@@ -1,7 +1,32 @@
 import React from 'react';
 import { Building2, MapPin, Calendar, UserCheck, Target, ChevronDown } from 'lucide-react';
 
+// FUNGSI HELPER UNTUK FORMAT TANGGAL
+const formatTanggalIndo = (dateObj) => {
+  if (isNaN(dateObj.getTime())) return '';
+  const bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+  return `${dateObj.getDate().toString().padStart(2, '0')} ${bulan[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+};
+
 export default function InfoPengawasan({ isEditMode, reportData, editForm, setEditForm, availableWeeks = [] }) {
+  
+  // LOGIKA HITUNG RENTANG TANGGAL MINGGUAN
+  const getWeekDateRange = (weekNum) => {
+    if (!reportData || !reportData.project || !reportData.project.tanggal_mulai) return '';
+    
+    const startDate = new Date(reportData.project.tanggal_mulai);
+    
+    // Hitung tanggal mulai minggu (Hari ke: (Minggu - 1) * 7)
+    const weekStart = new Date(startDate);
+    weekStart.setDate(startDate.getDate() + ((weekNum - 1) * 7));
+    
+    // Hitung tanggal akhir minggu (+ 6 hari)
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    
+    return `(${formatTanggalIndo(weekStart)} - ${formatTanggalIndo(weekEnd)})`;
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {/* KARTU 1: LOKASI & PROYEK */}
@@ -34,21 +59,27 @@ export default function InfoPengawasan({ isEditMode, reportData, editForm, setEd
                 <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">{reportData.tanggal}</p>
               )}
             </div>
+            
             <div className="bg-slate-50 dark:bg-slate-900/60 p-3.5 md:p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
               <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><Target className="w-3.5 h-3.5 text-indigo-500" /> Minggu Ke-</span>
               {isEditMode ? (
                 <div className="relative">
                   <select value={editForm.minggu_ke} onChange={e => setEditForm({...editForm, minggu_ke: e.target.value})} className="w-full bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-500/50 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none shadow-inner cursor-pointer">
                     <option value="" disabled>-- Pilih --</option>
-                    {availableWeeks.map(w => <option key={w} value={w}>Minggu Ke-{w}</option>)}
+                    {availableWeeks.map(w => (
+                      <option key={w} value={w}>Minggu Ke-{w} {getWeekDateRange(w)}</option>
+                    ))}
                   </select>
                   <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                 </div>
               ) : (
-                <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">Ke-{reportData.minggu_ke || '-'}</p>
+                <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  Ke-{reportData.minggu_ke || '-'} {reportData.minggu_ke ? getWeekDateRange(reportData.minggu_ke) : ''}
+                </p>
               )}
             </div>
           </div>
+          
           <div className="bg-slate-50 dark:bg-slate-900/60 p-3.5 md:p-4 rounded-xl border border-slate-200 dark:border-slate-700/50">
             <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1.5"><UserCheck className="w-3.5 h-3.5 text-emerald-500" /> Nama Pengawas</span>
             {isEditMode ? (

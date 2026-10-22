@@ -15,6 +15,13 @@ const defaultPeralatanList = [
   'Excavator', 'Dump Truck', 'Water Past', 'Theodolith', 'Concrete Mixer', 'Jack Hammer', 'Mesin Alcon', 'Mesin Las', 'Alat bantu'
 ];
 
+// FUNGSI HELPER UNTUK FORMAT TANGGAL (Contoh: 01 Jan 2026)
+const formatTanggalIndo = (dateObj) => {
+  if (isNaN(dateObj.getTime())) return '';
+  const bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+  return `${dateObj.getDate().toString().padStart(2, '0')} ${bulan[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+};
+
 export default function AddLaporan() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -97,6 +104,34 @@ export default function AddLaporan() {
   }
   const unscheduledRabOptions = rabOptions.filter(opt => !scheduledItemsMap.has(opt.id));
 
+  // --- LOGIKA HITUNG RENTANG TANGGAL MINGGUAN OTOMATIS ---
+  const selectedProjectObj = projects.find(p => p.id.toString() === selectedProjectId.toString());
+
+  const getWeekDateRange = (weekNum) => {
+    // 1. Cek jika API punya tanggal eksplisit dari database (fallback)
+    const sched = scheduleData?.schedules?.find(s => parseInt(s.minggu_ke) === weekNum);
+    if (sched && (sched.tanggal_awal || sched.tanggal_mulai)) {
+       const start = new Date(sched.tanggal_awal || sched.tanggal_mulai);
+       const end = new Date(sched.tanggal_akhir || sched.tanggal_selesai);
+       return `(${formatTanggalIndo(start)} - ${formatTanggalIndo(end)})`;
+    }
+
+    // 2. Jika tidak ada di DB, hitung otomatis dari "tanggal_mulai" proyek master
+    if (!selectedProjectObj || !selectedProjectObj.tanggal_mulai) return '';
+    
+    const startDate = new Date(selectedProjectObj.tanggal_mulai);
+    
+    // Hitung tanggal mulai minggu (Hari ke: (Minggu - 1) * 7)
+    const weekStart = new Date(startDate);
+    weekStart.setDate(startDate.getDate() + ((weekNum - 1) * 7));
+    
+    // Hitung tanggal akhir minggu (+ 6 hari)
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    
+    return `(${formatTanggalIndo(weekStart)} - ${formatTanggalIndo(weekEnd)})`;
+  };
+
   const handleInputChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   // HANDLERS FILE & MODAL
@@ -136,7 +171,6 @@ export default function AddLaporan() {
       payload.append('cuaca', cuacaGabungan);
       payload.append('kondisi_cuaca', JSON.stringify(cuacaItems));
       
-      // Kirim Array kegiatan langsung (semua parameter manual dan RAB dicampur dalam satu array JSON)
       payload.append('kegiatan', JSON.stringify(kegiatanItems));
       payload.append('personil', JSON.stringify(personilItems));
       payload.append('peralatan', JSON.stringify(peralatanItems));
@@ -225,7 +259,9 @@ export default function AddLaporan() {
                 <select name="minggu_ke" required value={formData.minggu_ke} onChange={handleInputChange} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl px-4 py-2.5 text-xs font-semibold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500 appearance-none shadow-inner cursor-pointer transition-colors">
                   <option value="" disabled>-- Pilih Minggu --</option>
                   {availableWeeks.length > 0 ? (
-                    availableWeeks.map(w => <option key={w} value={w}>Minggu Ke-{w}</option>)
+                    availableWeeks.map(w => (
+                      <option key={w} value={w}>Minggu Ke-{w} {getWeekDateRange(w)}</option>
+                    ))
                   ) : (
                     <option value="" disabled>{selectedProjectId ? "Kosong (Buat di Kurva S)" : "Pilih proyek dahulu"}</option>
                   )}
