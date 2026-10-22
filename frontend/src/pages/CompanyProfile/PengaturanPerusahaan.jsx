@@ -10,7 +10,6 @@ export default function PengaturanPerusahaan() {
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState({ type: '', text: '' });
 
-  // Ditambah state current_hero_image untuk preview
   const [landingData, setLandingData] = useState({ hero_title: '', hero_subtitle: '', btn_text: '', current_hero_image: null, hero_image: null });
   const [contactData, setContactData] = useState({ email: '', phone: '', website: '', address: '' });
   const [services, setServices] = useState([]);
@@ -24,7 +23,6 @@ export default function PengaturanPerusahaan() {
   const [serviceForm, setServiceForm] = useState({ title: '', description: '', image: null });
   const [eventForm, setEventForm] = useState({ title: '', category: 'Berita Proyek', date: '', status: 'Diterbitkan', image: null });
 
-  // Keamanan pemuatan gambar URL
   const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
 
   useEffect(() => {
@@ -66,7 +64,7 @@ export default function PengaturanPerusahaan() {
 
   const showMessage = (type, text) => {
     setMessage({ type, text });
-    setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+    setTimeout(() => setMessage({ type: '', text: '' }), 4000);
   };
 
   // --- FUNGSI UPDATE & HAPUS LANDING PAGE ---
@@ -75,9 +73,9 @@ export default function PengaturanPerusahaan() {
     setIsSubmitting(true);
     try {
       const formData = new FormData();
-      formData.append('hero_title', landingData.hero_title);
-      formData.append('hero_subtitle', landingData.hero_subtitle);
-      formData.append('btn_text', landingData.btn_text);
+      formData.append('hero_title', landingData.hero_title || '');
+      formData.append('hero_subtitle', landingData.hero_subtitle || '');
+      formData.append('btn_text', landingData.btn_text || '');
       if (landingData.hero_image) {
         formData.append('hero_image', landingData.hero_image);
       }
@@ -88,7 +86,10 @@ export default function PengaturanPerusahaan() {
       showMessage('success', 'Landing Page berhasil diperbarui!');
       setIsLandingModalOpen(false);
       fetchAllData();
-    } catch (err) { showMessage('error', 'Gagal menyimpan Landing Page.'); }
+    } catch (err) { 
+      // PERBAIKAN: Menampilkan pesan error asli dari backend
+      showMessage('error', err.response?.data?.message || 'Gagal menyimpan Landing Page.'); 
+    }
     setIsSubmitting(false);
   };
 
@@ -107,7 +108,10 @@ export default function PengaturanPerusahaan() {
       });
       showMessage('success', 'Landing Page berhasil direset ke Default!');
       fetchAllData();
-    } catch (err) { showMessage('error', 'Gagal menghapus Landing Page.'); }
+    } catch (err) { 
+      // PERBAIKAN: Menampilkan pesan error asli dari backend
+      showMessage('error', err.response?.data?.message || 'Gagal menghapus Landing Page.'); 
+    }
     setIsSubmitting(false);
   };
 
@@ -116,7 +120,9 @@ export default function PengaturanPerusahaan() {
     try {
       await api.post('/cms/contact', contactData);
       showMessage('success', 'Informasi Kontak berhasil diperbarui!');
-    } catch (err) { showMessage('error', 'Gagal menyimpan Kontak.'); }
+    } catch (err) { 
+      showMessage('error', err.response?.data?.message || 'Gagal menyimpan Kontak.'); 
+    }
     setIsSubmitting(false);
   };
 
@@ -135,7 +141,9 @@ export default function PengaturanPerusahaan() {
       setIsServiceModalOpen(false);
       fetchAllData();
       showMessage('success', 'Layanan berhasil ditambahkan!');
-    } catch (err) { showMessage('error', 'Gagal menambah layanan.'); }
+    } catch (err) { 
+      showMessage('error', err.response?.data?.message || 'Gagal menambah layanan.'); 
+    }
     setIsSubmitting(false);
   };
 
@@ -145,7 +153,9 @@ export default function PengaturanPerusahaan() {
       await api.delete(`/cms/services/${id}`);
       fetchAllData();
       showMessage('success', 'Layanan dihapus.');
-    } catch (err) { showMessage('error', 'Gagal menghapus layanan.'); }
+    } catch (err) { 
+      showMessage('error', err.response?.data?.message || 'Gagal menghapus layanan.'); 
+    }
   };
 
   const handleAddEvent = async (e) => {
@@ -165,7 +175,9 @@ export default function PengaturanPerusahaan() {
       setIsEventModalOpen(false);
       fetchAllData();
       showMessage('success', 'Event berhasil disimpan!');
-    } catch (err) { showMessage('error', 'Gagal menyimpan event.'); }
+    } catch (err) { 
+      showMessage('error', err.response?.data?.message || 'Gagal menyimpan event.'); 
+    }
     setIsSubmitting(false);
   };
 
@@ -175,7 +187,9 @@ export default function PengaturanPerusahaan() {
       await api.delete(`/cms/events/${id}`);
       fetchAllData();
       showMessage('success', 'Event dihapus.');
-    } catch (err) { showMessage('error', 'Gagal menghapus event.'); }
+    } catch (err) { 
+      showMessage('error', err.response?.data?.message || 'Gagal menghapus event.'); 
+    }
   };
 
   if (isLoading) {
@@ -230,7 +244,7 @@ export default function PengaturanPerusahaan() {
         ))}
       </div>
 
-      {/* --- KONTEN LANDING PAGE (SEKARANG DENGAN PREVIEW CARD SEPERTI LAYANAN) --- */}
+      {/* --- KONTEN LANDING PAGE --- */}
       {activeTab === 'landing' && (
         <div className="bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-6 shadow-sm animate-fade-in">
           <div className="flex items-center justify-between mb-6 border-b border-slate-100 dark:border-slate-700 pb-4">
@@ -247,7 +261,6 @@ export default function PengaturanPerusahaan() {
             </div>
           </div>
           
-          {/* Card Preview Landing Page */}
           <div className="flex flex-col md:flex-row gap-6 p-5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 rounded-2xl transition-all hover:border-amber-400/50">
              <div className="w-full md:w-1/3 h-48 bg-slate-200 dark:bg-slate-800 rounded-xl overflow-hidden border border-slate-300 dark:border-slate-600 flex items-center justify-center relative">
                  {landingData.current_hero_image ? (
