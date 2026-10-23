@@ -4,7 +4,7 @@ import api from '../../api';
 import { 
   Search, Eye, Plus, FileSpreadsheet, Calendar, MapPin, 
   UserCheck, ListTodo, Users, 
-  Wrench, X, Loader2, AlertTriangle, CheckCircle2, Clock, Filter, Edit3, Trash2, FileBox, Sparkles, ChevronLeft, ChevronRight
+  Wrench, X, Loader2, AlertTriangle, CheckCircle2, Clock, Filter, Edit3, Trash2, FileBox, Sparkles, ChevronLeft, ChevronRight, ArrowUpDown
 } from 'lucide-react';
 
 let cachedLaporan = null;
@@ -55,7 +55,16 @@ export default function LaporanList() {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilter, setShowFilter] = useState(false);
-  const [filters, setFilters] = useState({ status: 'Semua', startDate: '', endDate: '' });
+  
+  // PERBAIKAN: Menambahkan state filter "Tahun" dan sortir "Urutan"
+  const [filters, setFilters] = useState({ 
+    status: 'Semua', 
+    startDate: '', 
+    endDate: '',
+    tahun: 'Semua', 
+    urutan: 'Terbaru' 
+  });
+  
   const filterRef = useRef(null);
 
   const [isEditMode, setIsEditMode] = useState(false);
@@ -111,11 +120,15 @@ export default function LaporanList() {
         const formatTgl = l.tanggal.replace(/-/g, '');
         const formatId = l.id.toString().padStart(3, '0');
         
+        // Ekstrak Tahun dari tanggal (Contoh: "2026-10-24" -> "2026")
+        const tahunLaporan = l.tanggal ? l.tanggal.split('-')[0] : new Date(l.created_at).getFullYear().toString();
+        
         return {
           id: l.id,
           nomorLaporan: `LAP/${formatTgl}/${formatId}`,
           status: l.status || 'pending', 
           tanggalPengawasan: l.tanggal, 
+          tahun: tahunLaporan, // Data baru untuk Filter & Tag
           namaPengawas: l.pengawas,
           namaProyek: l.project ? l.project.nama_proyek : 'Proyek Tidak Diketahui',
           lokasi: l.lokasi,
@@ -203,10 +216,16 @@ export default function LaporanList() {
   const clearFilter = (key) => {
     if (key === 'tanggal') {
       setFilters(prev => ({ ...prev, startDate: '', endDate: '' }));
+    } else if (key === 'Semua') {
+      // Tombol Reset Semua
+      setFilters({ status: 'Semua', startDate: '', endDate: '', tahun: 'Semua', urutan: 'Terbaru' });
     } else {
-      setFilters(prev => ({ ...prev, [key]: 'Semua' }));
+      setFilters(prev => ({ ...prev, [key]: key === 'urutan' ? 'Terbaru' : 'Semua' }));
     }
   };
+
+  // Kumpulkan tahun yang tersedia dari daftar laporan (untuk dropdown filter)
+  const availableYears = [...new Set(laporanList.map(l => l.tahun))].sort((a, b) => b - a);
 
   const filteredLaporan = laporanList.filter(l => {
     const query = searchQuery.toLowerCase();
@@ -219,13 +238,15 @@ export default function LaporanList() {
     const computedStatus = (isGuest && l.status === 'rejected') ? 'pending' : l.status;
     const matchStatus = filters.status === 'Semua' || computedStatus === filters.status;
     
+    const matchTahun = filters.tahun === 'Semua' || l.tahun === filters.tahun;
+
     let matchTanggal = true;
     if (l.tanggalPengawasan) {
       if (filters.startDate && l.tanggalPengawasan < filters.startDate) matchTanggal = false;
       if (filters.endDate && l.tanggalPengawasan > filters.endDate) matchTanggal = false;
     }
     
-    return matchSearch && matchStatus && matchTanggal;
+    return matchSearch && matchStatus && matchTahun && matchTanggal;
   });
 
   const visibleLaporan = filteredLaporan.filter(l => !stagedDeletions.includes(l.id));
@@ -234,12 +255,18 @@ export default function LaporanList() {
     const isNewA = isReportNew(a);
     const isNewB = isReportNew(b);
 
+    // Laporan baru (NEW) selalu di atas, terlepas dari filter Terbaru/Terlama
     if (isNewA && !isNewB) return -1;
     if (!isNewA && isNewB) return 1;
 
     const dateA = new Date(a.tanggalPengawasan || a.created_at || 0);
     const dateB = new Date(b.tanggalPengawasan || b.created_at || 0);
-    return dateB - dateA;
+    
+    // Logika Pengurutan berdasarkan Filter Urutan
+    if (filters.urutan === 'Terlama') {
+      return dateA - dateB; // ASC (Lama ke Baru)
+    }
+    return dateB - dateA; // DESC (Baru ke Lama) - Default
   });
 
   const totalPages = Math.ceil(sortedLaporan.length / itemsPerPage) || 1;
@@ -263,10 +290,15 @@ export default function LaporanList() {
   };
 
   const statusOptions = [
-    { value: 'Semua', label: 'Semua' },
+    { value: 'Semua', label: 'Semua Status' },
     { value: 'pending', label: 'Pending' },
     { value: 'approved', label: 'Disetujui' },
     ...(isGuest ? [] : [{ value: 'rejected', label: 'Ditolak' }])
+  ];
+
+  const orderOptions = [
+    { value: 'Terbaru', label: 'Terbaru (Bulan Ini)' },
+    { value: 'Terlama', label: 'Terlama (Awal Proyek)' }
   ];
 
   return (
@@ -308,7 +340,7 @@ export default function LaporanList() {
               disabled={isLoading && laporanList.length === 0}
               onClick={() => setShowFilter(!showFilter)} 
               className={`flex items-center gap-2 p-2.5 md:px-3.5 md:py-2 rounded-xl text-xs font-bold border transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${
-                showFilter || filters.status !== 'Semua' || filters.startDate || filters.endDate 
+                showFilter || filters.status !== 'Semua' || filters.tahun !== 'Semua' || filters.urutan !== 'Terbaru' || filters.startDate || filters.endDate 
                   ? 'bg-purple-50 dark:bg-purple-500/10 border-purple-300 dark:border-purple-500/30 text-purple-600 dark:text-purple-400' 
                   : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:bg-purple-50 dark:hover:bg-purple-500/10 hover:text-purple-600 dark:hover:text-purple-400 hover:border-purple-200 dark:hover:border-purple-500/30'
               }`}
@@ -317,13 +349,39 @@ export default function LaporanList() {
               <span className="hidden sm:inline">Filter</span>
             </button>
 
+            {/* POPUP FILTER UPDATE */}
             {showFilter && (
-              <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-5 z-50 animate-fade-in">
-                <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 dark:border-slate-700/60 pb-2">Filter Laporan</h4>
+              <div className="absolute right-0 top-full mt-2 w-[340px] sm:w-[380px] bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-5 z-50 animate-fade-in">
+                <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 dark:border-slate-700/60 pb-2">Opsi Filter & Sortir</h4>
                 
                 <div className="space-y-4">
+                  {/* Grid 2 Kolom untuk Sortir & Tahun */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1"><ArrowUpDown className="w-3 h-3"/> Urutkan Berdasarkan</label>
+                      <select 
+                        value={filters.urutan} 
+                        onChange={(e) => handleFilterChange('urutan', e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 text-[11px] font-bold text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-amber-500 outline-none"
+                      >
+                        {orderOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1"><Calendar className="w-3 h-3"/> Tahun Laporan</label>
+                      <select 
+                        value={filters.tahun} 
+                        onChange={(e) => handleFilterChange('tahun', e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-2 text-[11px] font-bold text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-amber-500 outline-none"
+                      >
+                        <option value="Semua">Semua Tahun</option>
+                        {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
                   <div>
-                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Status Laporan</label>
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Pilih Status Laporan</label>
                     <div className="flex flex-wrap gap-2">
                       {statusOptions.map(opt => {
                         const isActive = filters.status === opt.value;
@@ -345,7 +403,7 @@ export default function LaporanList() {
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Rentang Tanggal</label>
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Cari Rentang Tanggal Khusus</label>
                     <div className="flex items-center gap-2">
                       <input 
                         type="date" 
@@ -365,7 +423,7 @@ export default function LaporanList() {
                 </div>
 
                 <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-700 flex justify-end">
-                  <button onClick={() => { setFilters({ status: 'Semua', startDate: '', endDate: '' }); setShowFilter(false); }} className="text-[10px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-white transition-colors">Reset Semua</button>
+                  <button onClick={() => { clearFilter('Semua'); setShowFilter(false); }} className="text-[10px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-white transition-colors">Reset Semua Filter</button>
                 </div>
               </div>
             )}
@@ -405,8 +463,21 @@ export default function LaporanList() {
         </div>
       </div>
 
-      {(filters.status !== 'Semua' || filters.startDate || filters.endDate) && (
+      {/* FILTER ACTIVE BADGES */}
+      {(filters.status !== 'Semua' || filters.tahun !== 'Semua' || filters.urutan !== 'Terbaru' || filters.startDate || filters.endDate) && (
         <div className="flex flex-wrap gap-2 animate-fade-in -mt-2">
+          {filters.urutan !== 'Terbaru' && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold rounded-lg border border-slate-200 dark:border-slate-700">
+              <ArrowUpDown className="w-3 h-3"/> Urut: {filters.urutan}
+              <button onClick={() => clearFilter('urutan')} className="hover:bg-slate-200 dark:hover:bg-slate-700 p-0.5 rounded-full transition-colors"><X className="w-3 h-3"/></button>
+            </span>
+          )}
+          {filters.tahun !== 'Semua' && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold rounded-lg border border-indigo-200 dark:border-indigo-500/20">
+              Tahun: {filters.tahun}
+              <button onClick={() => clearFilter('tahun')} className="hover:bg-indigo-200 dark:hover:bg-indigo-500/30 p-0.5 rounded-full transition-colors"><X className="w-3 h-3"/></button>
+            </span>
+          )}
           {filters.status !== 'Semua' && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-500 text-[10px] font-bold rounded-lg border border-amber-200 dark:border-amber-500/20">
               {getStatusText(filters.status)}
@@ -463,6 +534,10 @@ export default function LaporanList() {
                           )}
                           <span className={`px-2 py-0.5 text-[9px] font-bold rounded border inline-block ${getStatusStyles(finalStatus)}`}>
                             {getStatusText(finalStatus)}
+                          </span>
+                          {/* TAG TAHUN DI MOBILE */}
+                          <span className="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded text-[9px] font-bold border border-indigo-200 dark:border-indigo-500/30">
+                            {laporan.tahun}
                           </span>
                           <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded text-[9px] font-bold border border-slate-200 dark:border-slate-700">
                             {laporan.nomorLaporan}
@@ -532,7 +607,7 @@ export default function LaporanList() {
             )}
           </div>
 
-          {/* TAMPILAN DESKTOP: FULL FILL TABLE 5 KOLOM SEPERTI PROJECTLIST */}
+          {/* TAMPILAN DESKTOP: FULL FILL TABLE */}
           <div className="hidden md:block bg-white dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-2xl overflow-hidden shadow-sm dark:shadow-lg backdrop-blur-sm animate-fade-in">
             <div className="overflow-x-auto custom-scrollbar">
               <table className="w-full text-left border-collapse table-fixed min-w-[1000px] h-full">
@@ -575,6 +650,10 @@ export default function LaporanList() {
                                   )}
                                   <span className={`px-2 py-0.5 text-[9px] font-bold rounded border inline-block ${getStatusStyles(finalStatus)}`}>
                                     {getStatusText(finalStatus)}
+                                  </span>
+                                  {/* TAG TAHUN DI DESKTOP */}
+                                  <span className="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded text-[9px] font-bold border border-indigo-200 dark:border-indigo-500/30">
+                                    {laporan.tahun}
                                   </span>
                                   <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded text-[9px] font-bold border border-slate-200 dark:border-slate-700">
                                     {laporan.nomorLaporan}
