@@ -13,6 +13,42 @@ export default function KegiatanGeografisAdd({
   grandTotalRab, cumulativeActuals
 }) {
 
+  // --- HELPER PERHITUNGAN SISA BOBOT & VOLUME (SINKRON 4 DESIMAL DENGAN SCHEDULE) ---
+  const getRemainingMetrics = (rabItem) => {
+    if (!rabItem || !grandTotalRab || grandTotalRab <= 0) {
+      return { sisaVol: 0, sisaBobot: 0, isCompleted: false };
+    }
+
+    const targetVol = parseFloat(rabItem.volume || 0);
+    // Bulatkan targetBobot ke 4 desimal agar sama persis dengan perhitungan di Kurva S / Schedule
+    const rawTargetBobot = (parseFloat(rabItem.total_harga || 0) / grandTotalRab) * 100;
+    const targetBobot = Number(rawTargetBobot.toFixed(4));
+    const accumBobot = Number(parseFloat(cumulativeActuals?.[rabItem.id] || 0).toFixed(4));
+
+    const sisaBobot = Math.max(0, Number((targetBobot - accumBobot).toFixed(4)));
+
+    // Jika sisa bobot sudah habis (<= 0.0001), maka sisa volume otomatis 0 (Selesai 100%)
+    if (targetBobot > 0 && sisaBobot <= 0.0001) {
+      return { sisaVol: 0, sisaBobot: 0, isCompleted: true };
+    }
+
+    const accumVol = targetBobot > 0 ? (accumBobot / targetBobot) * targetVol : 0;
+    const sisaVol = Math.max(0, Number((targetVol - accumVol).toFixed(4)));
+    const isCompleted = targetVol > 0 && sisaVol <= 0.0001;
+
+    return { sisaVol, sisaBobot, isCompleted };
+  };
+
+  // Filter hanya pekerjaan yang belum mencapai batas maksimal
+  const filterAvailableOptions = (options) => {
+    if (!options || !Array.isArray(options)) return [];
+    return options.filter(opt => !getRemainingMetrics(opt).isCompleted);
+  };
+
+  const filteredMingguIni = filterAvailableOptions(optionsMingguIni);
+  const filteredMingguLain = filterAvailableOptions(optionsMingguLain);
+  const filteredUnscheduled = filterAvailableOptions(unscheduledRabOptions);
+
   const formatGroup = (label, options) => ({
     label,
     options: options.map(opt => ({
@@ -22,9 +58,9 @@ export default function KegiatanGeografisAdd({
   });
 
   const selectOptions = [];
-  if (optionsMingguIni?.length > 0) selectOptions.push(formatGroup('TARGET MINGGU INI', optionsMingguIni));
-  if (optionsMingguLain?.length > 0) selectOptions.push(formatGroup('TARGET MINGGU LAINNYA', optionsMingguLain));
-  if (unscheduledRabOptions?.length > 0) selectOptions.push(formatGroup('PEKERJAAN DI LUAR JADWAL (RAB)', unscheduledRabOptions));
+  if (filteredMingguIni?.length > 0) selectOptions.push(formatGroup('TARGET MINGGU INI', filteredMingguIni));
+  if (filteredMingguLain?.length > 0) selectOptions.push(formatGroup('TARGET MINGGU LAINNYA', filteredMingguLain));
+  if (filteredUnscheduled?.length > 0) selectOptions.push(formatGroup('PEKERJAAN DI LUAR JADWAL (RAB)', filteredUnscheduled));
   selectOptions.push({ label: 'LAINNYA', options: [{ value: 'manual', label: '+ Pekerjaan Manual / Baru' }] });
 
   const calculatePercentage = (volume, rabItem) => {
@@ -32,7 +68,6 @@ export default function KegiatanGeografisAdd({
     const volNum = parseFloat(volume);
     if (isNaN(volNum) || volNum <= 0) return '';
     
-    // Jika ini adalah pekerjaan Addendum/Manual yang otomatis terdaftar tapi belum ada harga kontraknya
     if (parseFloat(rabItem.total_harga) === 0 || !rabItem.total_harga) return '0.00';
 
     const targetVolume = parseFloat(rabItem.volume);
@@ -79,8 +114,16 @@ export default function KegiatanGeografisAdd({
   return (
     <div className="bg-white dark:bg-slate-800/60 p-5 md:p-6 rounded-2xl border border-slate-200 dark:border-slate-700/60 shadow-sm space-y-4 backdrop-blur-sm">
       <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/60 pb-3">
-        <label className="text-xs font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wider flex items-center gap-2"><ListTodo className="w-4 h-4" /> Uraian Kegiatan Lapangan</label>
-        <button type="button" onClick={() => setKegiatanItems([...kegiatanItems, { id: Date.now(), rab_item_id: null, uraian: '', sta_awal: '', sta_akhir: '', volume: '', satuan: '', persentase: '' }])} className="text-[10px] bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 border border-amber-200 dark:border-amber-500/30 transition-colors shadow-sm"><Plus className="w-3.5 h-3.5" /> Tambah</button>
+        <label className="text-xs font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wider flex items-center gap-2">
+          <ListTodo className="w-4 h-4" /> Uraian Kegiatan Lapangan
+        </label>
+        <button 
+          type="button" 
+          onClick={() => setKegiatanItems([...kegiatanItems, { id: Date.now(), rab_item_id: null, uraian: '', sta_awal: '', sta_akhir: '', volume: '', satuan: '', persentase: '' }])} 
+          className="text-[10px] bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 border border-amber-200 dark:border-amber-500/30 transition-colors shadow-sm"
+        >
+          <Plus className="w-3.5 h-3.5" /> Tambah
+        </button>
       </div>
 
       <div className="space-y-4">
@@ -95,19 +138,12 @@ export default function KegiatanGeografisAdd({
                 currentVal = { value: item.rab_item_id.toString(), label: `${foundRab.uraian_pekerjaan || foundRab.uraian} (${foundRab.kategori || foundRab.kategori_nama})` };
                 
                 if (grandTotalRab > 0 && parseFloat(foundRab.total_harga) > 0) {
-                    const targetVol = parseFloat(foundRab.volume || 0);
-                    const targetBobot = (parseFloat(foundRab.total_harga || 0) / grandTotalRab) * 100;
-                    const accumBobot = parseFloat(cumulativeActuals?.[item.rab_item_id] || 0);
-                    const accumVol = targetBobot > 0 ? (accumBobot / targetBobot) * targetVol : 0;
-                    
-                    const sisaVol = Math.max(0, targetVol - accumVol);
-                    const sisaBobot = Math.max(0, targetBobot - accumBobot);
-
-                    sisaVolInfo = `${formatCleanNumber(sisaVol.toFixed(4))} ${foundRab.satuan}`;
-                    sisaBobotInfo = `${sisaBobot.toFixed(2)}%`;
+                    const { sisaVol, sisaBobot } = getRemainingMetrics(foundRab);
+                    sisaVolInfo = `${formatCleanNumber(sisaVol)} ${foundRab.satuan}`;
+                    sisaBobotInfo = `${formatCleanNumber(sisaBobot)}%`;
                 }
             }
-          } else if (item.rab_item_id === null && item.uraian !== undefined) {
+          } else if (item.rab_item_id === null && item.uraian !== undefined && item.uraian !== '') {
             currentVal = { value: 'manual', label: '+ Pekerjaan Manual / Baru' };
           }
 
@@ -115,7 +151,11 @@ export default function KegiatanGeografisAdd({
             <div key={item.id} className="grid grid-cols-12 gap-4 bg-slate-50 dark:bg-slate-900/40 p-5 rounded-xl border border-slate-200 dark:border-slate-700/60 items-start shadow-sm transition-all relative">
               <div className="col-span-12 flex justify-between items-center mb-1">
                 <span className="text-[11px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wider flex items-center gap-1.5"><div className="w-1.5 h-4 bg-amber-500 rounded-full"></div> Pekerjaan {index + 1}</span>
-                {kegiatanItems.length > 1 && <button type="button" onClick={() => setKegiatanItems(kegiatanItems.filter(k => k.id !== item.id))} className="text-rose-500 bg-rose-50 dark:bg-rose-500/10 p-1.5 rounded-md border border-rose-200 dark:border-rose-500/30 hover:bg-rose-500 hover:text-white transition-colors shadow-sm"><Trash2 className="w-3.5 h-3.5" /></button>}
+                {kegiatanItems.length > 1 && (
+                  <button type="button" onClick={() => setKegiatanItems(kegiatanItems.filter(k => k.id !== item.id))} className="text-rose-500 bg-rose-50 dark:bg-rose-500/10 p-1.5 rounded-md border border-rose-200 dark:border-rose-500/30 hover:bg-rose-500 hover:text-white transition-colors shadow-sm">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
 
               <div className="col-span-12">
@@ -154,15 +194,16 @@ export default function KegiatanGeografisAdd({
                           `px-2 py-1.5 text-[9px] font-extrabold uppercase tracking-wider text-amber-600 dark:text-amber-500 bg-amber-50/50 dark:bg-amber-500/10 rounded-md mb-1 mt-2 mx-1`,
                         dropdownIndicator: () => 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer',
                         clearIndicator: () => 'text-slate-400 hover:text-rose-500 cursor-pointer',
-                        indicatorSeparator: () => 'hidden'
+                        indicatorSeparator: () => 'hidden',
+                        noOptionsMessage: () => 'p-2 text-center text-xs text-slate-500 dark:text-slate-400'
                       }}
+                      noOptionsMessage={() => "Semua pekerjaan selesai / tidak ditemukan"}
                     />
                   </div>
                 ) : (
                   <div className="text-[10px] text-rose-500 bg-rose-50 dark:bg-rose-500/10 p-2 rounded-lg border border-rose-200 dark:border-rose-500/20 mb-2">Pilih proyek & tunggu RAB dimuat.</div>
                 )}
                 
-                {/* Input manual uraian muncul saat pilih "Pekerjaan Manual / Baru" */}
                 {(!item.rab_item_id) && (
                   <textarea 
                     rows="2" 
@@ -208,7 +249,6 @@ export default function KegiatanGeografisAdd({
                     <div className="flex justify-between items-center mb-2">
                        <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Satuan</label>
                     </div>
-                    {/* Jika manual, Satuan bisa diinput. Jika RAB, Satuan dibaca dari DB */}
                     <input 
                       type="text" 
                       placeholder="Contoh: Ls, m3..." 
@@ -228,7 +268,6 @@ export default function KegiatanGeografisAdd({
                         </span>
                       )}
                     </div>
-                    {/* Persentase selalu dibekukan (Read Only) untuk menghindari pengisian persentase palsu */}
                     <input 
                       type="number" 
                       step="any" 

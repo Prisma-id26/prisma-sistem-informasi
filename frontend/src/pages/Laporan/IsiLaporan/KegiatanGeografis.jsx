@@ -23,6 +23,38 @@ export default function KegiatanGeografis({
   grandTotalRab, cumulativeActuals 
 }) {
 
+  const getRemainingMetrics = (rabItem) => {
+    if (!rabItem || !grandTotalRab || grandTotalRab <= 0) {
+      return { sisaVol: 0, sisaBobot: 0, isCompleted: false };
+    }
+
+    const targetVol = parseFloat(rabItem.volume || 0);
+    const rawTargetBobot = (parseFloat(rabItem.total_harga || 0) / grandTotalRab) * 100;
+    const targetBobot = Number(rawTargetBobot.toFixed(4));
+    const accumBobot = Number(parseFloat(cumulativeActuals?.[rabItem.id] || 0).toFixed(4));
+
+    const sisaBobot = Math.max(0, Number((targetBobot - accumBobot).toFixed(4)));
+
+    if (targetBobot > 0 && sisaBobot <= 0.0001) {
+      return { sisaVol: 0, sisaBobot: 0, isCompleted: true };
+    }
+
+    const accumVol = targetBobot > 0 ? (accumBobot / targetBobot) * targetVol : 0;
+    const sisaVol = Math.max(0, Number((targetVol - accumVol).toFixed(4)));
+    const isCompleted = targetVol > 0 && sisaVol <= 0.0001;
+
+    return { sisaVol, sisaBobot, isCompleted };
+  };
+
+  const filterAvailableOptions = (options) => {
+    if (!options || !Array.isArray(options)) return [];
+    return options.filter(opt => !getRemainingMetrics(opt).isCompleted);
+  };
+
+  const filteredMingguIni = filterAvailableOptions(optionsMingguIni);
+  const filteredMingguLain = filterAvailableOptions(optionsMingguLain);
+  const filteredUnscheduled = filterAvailableOptions(unscheduledRabOptions);
+
   const calculatePercentage = (volume, rabItem) => {
     if (!rabItem || !volume || !grandTotalRab || grandTotalRab <= 0) return '';
     const volNum = parseFloat(volume);
@@ -82,9 +114,9 @@ export default function KegiatanGeografis({
   });
 
   const selectOptions = [];
-  if (optionsMingguIni?.length > 0) selectOptions.push(formatGroup('>>> TARGET MINGGU INI', optionsMingguIni));
-  if (optionsMingguLain?.length > 0) selectOptions.push(formatGroup('>>> TARGET MINGGU LAINNYA', optionsMingguLain));
-  if (unscheduledRabOptions?.length > 0) selectOptions.push(formatGroup('>>> PEKERJAAN DI LUAR JADWAL (RAB)', unscheduledRabOptions));
+  if (filteredMingguIni?.length > 0) selectOptions.push(formatGroup('>>> TARGET MINGGU INI', filteredMingguIni));
+  if (filteredMingguLain?.length > 0) selectOptions.push(formatGroup('>>> TARGET MINGGU LAINNYA', filteredMingguLain));
+  if (filteredUnscheduled?.length > 0) selectOptions.push(formatGroup('>>> PEKERJAAN DI LUAR JADWAL (RAB)', filteredUnscheduled));
   selectOptions.push({ label: 'LAINNYA', options: [{ value: 'manual', label: '+ Pekerjaan Tambah/Kurang (Input Manual)' }] });
 
   const isFormActive = isEditMode !== false; 
@@ -127,16 +159,9 @@ export default function KegiatanGeografis({
                       currentVal = { value: item.rab_item_id.toString(), label: `${foundRab.uraian_pekerjaan || foundRab.uraian} (${foundRab.kategori || foundRab.kategori_nama})` };
                       
                       if (grandTotalRab > 0 && parseFloat(foundRab.total_harga) > 0) {
-                          const targetVol = parseFloat(foundRab.volume || 0);
-                          const targetBobot = (parseFloat(foundRab.total_harga || 0) / grandTotalRab) * 100;
-                          const accumBobot = parseFloat(cumulativeActuals?.[item.rab_item_id] || 0);
-                          const accumVol = targetBobot > 0 ? (accumBobot / targetBobot) * targetVol : 0;
-                          
-                          const sisaVol = Math.max(0, targetVol - accumVol);
-                          const sisaBobot = Math.max(0, targetBobot - accumBobot);
-
-                          sisaVolInfo = `${formatCleanNumber(sisaVol.toFixed(4))} ${foundRab.satuan}`;
-                          sisaBobotInfo = `${sisaBobot.toFixed(2)}%`;
+                          const { sisaVol, sisaBobot } = getRemainingMetrics(foundRab);
+                          sisaVolInfo = `${formatCleanNumber(sisaVol)} ${foundRab.satuan}`;
+                          sisaBobotInfo = `${formatCleanNumber(sisaBobot)}%`;
                       }
                   }
                 } else if (item.rab_item_id === null && item.uraian !== undefined) {
@@ -170,7 +195,7 @@ export default function KegiatanGeografis({
                           isSearchable={true}
                           menuPortalTarget={document.body}
                           styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
-                          noOptionsMessage={() => "Pekerjaan tidak ditemukan"}
+                          noOptionsMessage={() => "Semua pekerjaan selesai / tidak ditemukan"}
                           unstyled
                           classNamePrefix="react-select"
                           classNames={{
@@ -223,7 +248,6 @@ export default function KegiatanGeografis({
                   
                   <div className="md:col-span-12 lg:col-span-4 border border-slate-200 dark:border-slate-700/60 p-3 rounded-lg bg-white dark:bg-slate-800/80 flex flex-col justify-center shadow-sm relative z-0">
                     <div className="grid grid-cols-12 gap-2 w-full items-end">
-                      {/* --- KOLOM VOLUME --- */}
                       <div className="col-span-12 sm:col-span-5">
                         <div className="flex justify-between items-end mb-1.5">
                           <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block">Vol <span className="text-rose-500">*</span></label>
@@ -243,7 +267,6 @@ export default function KegiatanGeografis({
                           className="w-full bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-300 dark:border-emerald-600 rounded-md px-2 py-1.5 text-xs text-emerald-700 dark:text-emerald-400 font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner text-center transition-colors" 
                         />
                       </div>
-                      {/* --- KOLOM SATUAN --- */}
                       <div className="col-span-12 sm:col-span-3">
                         <div className="flex justify-between items-end mb-1.5">
                           <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block text-center w-full">Sat</label>
@@ -257,10 +280,14 @@ export default function KegiatanGeografis({
                           readOnly={!!item.rab_item_id} 
                         />
                       </div>
-                      {/* --- KOLOM PERSEN --- */}
                       <div className="col-span-12 sm:col-span-4 relative group">
                         <div className="flex justify-between items-end mb-1.5">
                           <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider block">Persen</label>
+                          {sisaBobotInfo && (
+                            <span className="text-[8px] font-bold text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-500/10 px-1 rounded border border-rose-200 dark:border-rose-500/20">
+                              Sisa: {sisaBobotInfo}
+                            </span>
+                          )}
                         </div>
                         <input 
                           type="number" 

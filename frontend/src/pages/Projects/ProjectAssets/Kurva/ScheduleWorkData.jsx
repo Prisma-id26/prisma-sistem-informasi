@@ -85,7 +85,7 @@ export default function ScheduleWorkData({
   const extraCols = isEditMode && canCreateData ? 4 : 3;
 
   // =========================================================================
-  // MESIN KALKULASI FOOTER & KOLOM KUMULATIF (SUM REALISASI & SUM DEVIASI)
+  // MESIN KALKULASI FOOTER & KOLOM KUMULATIF (TERMASUK JUMLAH REALISASI KUMULATIF)
   // =========================================================================
   const { weeklyMetrics, totalsSummary } = useMemo(() => {
     const metrics = {};
@@ -93,6 +93,10 @@ export default function ScheduleWorkData({
     let sumRealisasi = 0;
     let sumDeviasi = 0;
     let hasAnyRealisasi = false;
+
+    // Cari minggu terakhir yang sudah memiliki laporan realisasi
+    const reportedWeeks = weeksArray.filter(w => scheduleData?.weekly_actual?.[w] !== undefined);
+    const maxReportedWeek = reportedWeeks.length > 0 ? Math.max(...reportedWeeks) : 0;
 
     weeksArray.forEach((w, index) => {
       const hasWeekReport = scheduleData?.weekly_actual?.[w] !== undefined;
@@ -113,12 +117,18 @@ export default function ScheduleWorkData({
         sumDeviasi = parseFloat((sumDeviasi + deviation).toFixed(4));
       }
 
+      // Jumlah Realisasi Kumulatif dihitung bertahap seperti Jumlah Rencana Kumulatif
+      const hasCumReport = maxReportedWeek > 0 && w <= maxReportedWeek;
+      const currentCumActual = hasCumReport ? sumRealisasi : null;
+
       metrics[w] = {
         planWeekly: rencanaMingguan,
         planCum: currentCumPlan,
         actualWeekly: weekActual,
+        actualCum: currentCumActual,
         deviation: deviation,
-        hasReport: hasWeekReport
+        hasReport: hasWeekReport,
+        hasCumReport: hasCumReport
       };
     });
 
@@ -392,7 +402,6 @@ export default function ScheduleWorkData({
                   );
                 })}
                 {isEditMode && canCreateData && <td className="border-r border-blue-200 dark:border-blue-500/20 bg-blue-50/10 dark:bg-blue-900/10"></td>}
-                {/* KOLOM KUMULATIF: SUM RENCANA MINGGUAN */}
                 <td className="p-2 text-right font-mono text-[10px] font-extrabold text-blue-600 dark:text-blue-400">
                   {`${formatDetailPercent(totalsSummary.sumPlan)}%`}
                 </td>
@@ -416,7 +425,7 @@ export default function ScheduleWorkData({
                 </td>
               </tr>
 
-              {/* 3. BARIS REALISASI & KOLOM KUMULATIF (SUM REALISASI) */}
+              {/* 3. BARIS REALISASI (MINGGUAN) */}
               <tr className="bg-emerald-50 dark:bg-emerald-500/5 border-t border-emerald-200 dark:border-emerald-500/20">
                 <td colSpan="3" className="p-2.5 text-right font-extrabold text-emerald-600 dark:text-emerald-400 uppercase text-[10px] border-r border-emerald-200 dark:border-emerald-500/20">
                   Realisasi
@@ -427,13 +436,28 @@ export default function ScheduleWorkData({
                   </td>
                 ))}
                 {isEditMode && canCreateData && <td className="border-r border-emerald-200 dark:border-emerald-500/20 bg-emerald-50/10 dark:bg-emerald-900/10"></td>}
-                {/* KOLOM KUMULATIF: SUM REALISASI */}
                 <td className="p-2.5 text-right font-mono text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">
                   {totalsSummary.hasAnyRealisasi ? `${formatDetailPercent(totalsSummary.sumRealisasi)}%` : '0.0000%'}
                 </td>
               </tr>
 
-              {/* 4. BARIS DEVIASI & KOLOM KUMULATIF (SUM DEVIASI) */}
+              {/* 4. BARIS BARU: JUMLAH REALISASI KUMULATIF */}
+              <tr className="bg-teal-50/80 dark:bg-teal-500/10 border-t border-teal-200 dark:border-teal-500/20">
+                <td colSpan="3" className="p-2 text-right font-extrabold text-teal-700 dark:text-teal-400 uppercase text-[10px] border-r border-teal-200 dark:border-teal-500/20">
+                  Jumlah Realisasi Kumulatif
+                </td>
+                {weeksArray.map(w => (
+                  <td key={w} className="p-1.5 text-center border-r border-teal-200 dark:border-teal-500/20 font-mono text-[10px] font-extrabold text-teal-700 dark:text-teal-400">
+                    {weeklyMetrics[w]?.hasCumReport ? formatDetailPercent(weeklyMetrics[w].actualCum) : '-'}
+                  </td>
+                ))}
+                {isEditMode && canCreateData && <td className="border-r border-teal-200 dark:border-teal-500/20 bg-teal-50/20 dark:bg-teal-900/10"></td>}
+                <td className="p-2 text-right font-mono text-[10px] font-extrabold text-teal-700 dark:text-teal-400">
+                  {totalsSummary.hasAnyRealisasi ? `${formatDetailPercent(totalsSummary.sumRealisasi)}%` : '0.0000%'}
+                </td>
+              </tr>
+
+              {/* 5. BARIS DEVIASI & KOLOM KUMULATIF (SUM DEVIASI) */}
               <tr className="bg-rose-50 dark:bg-rose-500/5 border-t border-rose-200 dark:border-rose-500/20">
                 <td colSpan="3" className="p-2 text-right font-extrabold text-rose-700 dark:text-rose-400 uppercase text-[10px] border-r border-rose-200 dark:border-rose-500/20">
                   Deviasi
@@ -458,7 +482,6 @@ export default function ScheduleWorkData({
                   );
                 })}
                 {isEditMode && canCreateData && <td className="border-r border-amber-200 dark:border-amber-500/20 bg-amber-50/20 dark:bg-amber-900/10"></td>}
-                {/* KOLOM KUMULATIF: SUM DEVIASI */}
                 <td className={`p-2 text-right font-mono text-[10px] font-extrabold ${sumDeviasiColor}`}>
                   {sumDeviasiFormatted}
                 </td>

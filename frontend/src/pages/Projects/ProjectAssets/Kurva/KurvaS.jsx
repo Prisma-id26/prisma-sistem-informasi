@@ -5,7 +5,7 @@ import api from '../../../../api.js';
 import { TrendingUp, Loader2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-import ScheduleWorkData from './ScheduleWorkData'; // Lokasi ini tetap
+import ScheduleWorkData from './ScheduleWorkData';
 import HeaderKurva from './HeaderKurva';
 import SetupJadwalPertama from './SetupJadwalPertama';
 import { ModalMingguan, ModalSimpan, ModalExport } from './ModalsKurva';
@@ -40,7 +40,6 @@ export default function KurvaS({ selectedProject }) {
   const [isLoading, setIsLoading] = useState(!hasCachedFullData);
   const [isRenderingUI, setIsRenderingUI] = useState(true);
 
-  // STATE TRANSISI LOADING INTERAKTIF
   const [loadingStep, setLoadingStep] = useState(0);
 
   useEffect(() => {
@@ -97,7 +96,6 @@ export default function KurvaS({ selectedProject }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // AUTO-SWITCH SKALA GRAFIK BERDASARKAN JUMLAH MINGGU
   const prevWeekCount = useRef(0);
   useEffect(() => {
     if (localWeeks.length > 0 && prevWeekCount.current !== localWeeks.length) {
@@ -156,8 +154,8 @@ export default function KurvaS({ selectedProject }) {
   };
 
   const getSafeFloat = (val) => {
-    if (val === null || val === undefined) return 0;
-    const parsed = parseFloat(val);
+    if (val === null || val === undefined || val === '') return 0;
+    const parsed = parseFloat(String(val).replace(',', '.'));
     return isNaN(parsed) ? 0 : parsed;
   };
 
@@ -280,7 +278,56 @@ export default function KurvaS({ selectedProject }) {
   };
 
   // =========================================================================
-  // PERHITUNGAN DATA HARIAN (TITIK AKTUAL HANYA MUNCUL SAAT ADA LAPORAN)
+  // 1. SUMBER DATA UTAMA MINGGUAN (SINKRON 100% DENGAN BARIS JUMLAH KUMULATIF TABEL)
+  // =========================================================================
+  const weeklyCumulativeChartData = useMemo(() => {
+    const safeWeeks = Array.isArray(localWeeks) && localWeeks.length > 0
+      ? [...localWeeks].sort((a, b) => parseInt(a.minggu_ke) - parseInt(b.minggu_ke))
+      : [];
+
+    if (safeWeeks.length === 0) return [];
+
+    const weeklyActualMap = scheduleData?.weekly_actual || {};
+    const reportedWeeks = safeWeeks
+      .map(w => parseInt(w.minggu_ke))
+      .filter(wNum => weeklyActualMap[wNum] !== undefined);
+    const maxReportedWeek = reportedWeeks.length > 0 ? Math.max(...reportedWeeks) : 0;
+
+    let runningActualCum = 0;
+
+    return safeWeeks.map((wObj, index) => {
+      const wNum = parseInt(wObj.minggu_ke) || (index + 1);
+      const planCum = parseFloat(getSafeFloat(wObj.target_kumulatif).toFixed(4));
+      const hasWeekReport = weeklyActualMap[wNum] !== undefined;
+      const weekActual = hasWeekReport ? parseFloat(getSafeFloat(weeklyActualMap[wNum]).toFixed(4)) : 0;
+
+      if (hasWeekReport) {
+        runningActualCum = parseFloat((runningActualCum + weekActual).toFixed(4));
+      }
+
+      // Ambil langsung dari logika Jumlah Realisasi Kumulatif
+      const hasCumReport = maxReportedWeek > 0 && wNum <= maxReportedWeek;
+      const actualCum = hasCumReport ? runningActualCum : null;
+      const deviasiCum = hasCumReport ? parseFloat((runningActualCum - planCum).toFixed(4)) : null;
+
+      return {
+        mingguKe: wNum,
+        bulan: wObj.bulan,
+        tanggal_awal: wObj.tanggal_awal,
+        tanggal_akhir: wObj.tanggal_akhir,
+        xAxisLabel: `M-${wNum}`,
+        tooltipLabel: `Minggu Ke-${wNum}`,
+        rencanaKumulatif: planCum,
+        realisasiKumulatif: actualCum,
+        deviasiKumulatif: deviasiCum,
+        bobotRealisasi: weekActual,
+        hasReport: hasWeekReport
+      };
+    });
+  }, [localWeeks, scheduleData?.weekly_actual]);
+
+  // =========================================================================
+  // 2. PERHITUNGAN DATA HARIAN (KHUSUS SAAT FILTER SKALA HARIAN AKTIF)
   // =========================================================================
   const fullChartData = useMemo(() => {
     if (!scheduleData) return [];
@@ -371,7 +418,7 @@ export default function KurvaS({ selectedProject }) {
       const actVal = getSafeFloat(dailyRealisasi[yyyymmdd]);
       const hasReportToday = dailyRealisasi[yyyymmdd] !== undefined;
 
-      if (hasReportToday) cumRealisasi += actVal;
+      if (hasReportToday) cumRealisasi = parseFloat((cumRealisasi + actVal).toFixed(4));
       
       let finalRealisasiKumulatif = null;
       let finalDeviasi = null;
@@ -379,7 +426,7 @@ export default function KurvaS({ selectedProject }) {
       if (hasReportToday) {
         finalRealisasiKumulatif = getSafeFloat(cumRealisasi);
         if (targetKumulatifMingguan !== null) {
-          finalDeviasi = getSafeFloat(cumRealisasi - targetKumulatifMingguan);
+          finalDeviasi = parseFloat((cumRealisasi - targetKumulatifMingguan).toFixed(4));
         }
       }
 
@@ -394,61 +441,66 @@ export default function KurvaS({ selectedProject }) {
   }, [scheduleData]);
 
   // =========================================================================
-  // AGREGASI SKALA HARIAN, MINGGUAN, DAN BULANAN
+  // 3. AGREGASI SKALA HARIAN, MINGGUAN, DAN BULANAN
   // =========================================================================
   const chartData = useMemo(() => {
-    if (fullChartData.length === 0) return [];
-    let filtered = fullChartData;
-    
     if (filterMode === 'Harian') {
-      if (!startDateFilter || !endDateFilter) return []; 
-      filtered = filtered.filter(d => d.dateString >= startDateFilter && d.dateString <= endDateFilter);
+      if (fullChartData.length === 0 || !startDateFilter || !endDateFilter) return [];
+      const filtered = fullChartData.filter(d => d.dateString >= startDateFilter && d.dateString <= endDateFilter);
       return filtered.map(d => ({ ...d, xAxisLabel: d.shortDate, tooltipLabel: d.displayDate }));
-    } 
-    
+    }
+
     if (filterMode === 'Bulanan') {
+      if (weeklyCumulativeChartData.length === 0) return [];
       const monthMap = {};
-      filtered.forEach(d => {
-        const dateObj = new Date(d.dateString);
-        const monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
-        const shortMonth = dateObj.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' });
-        const longMonth = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-        
-        monthMap[monthKey] = { 
-          ...d, xAxisLabel: shortMonth, tooltipLabel: `Bulan: ${longMonth}`,
-          rencanaKumulatif: d.targetKumulatifMingguan !== null ? d.targetKumulatifMingguan : (monthMap[monthKey]?.rencanaKumulatif ?? null),
-          realisasiKumulatif: d.realisasiKumulatif !== null ? d.realisasiKumulatif : (monthMap[monthKey]?.realisasiKumulatif ?? null),
-          deviasiKumulatif: d.deviasiKumulatif !== null ? d.deviasiKumulatif : (monthMap[monthKey]?.deviasiKumulatif ?? null)
+      weeklyCumulativeChartData.forEach((w, idx) => {
+        let monthKey = '';
+        let shortMonth = '';
+        let longMonth = '';
+
+        const refDateStr = w.tanggal_akhir || w.tanggal_awal;
+        if (refDateStr) {
+          const dateObj = new Date(refDateStr);
+          if (!isNaN(dateObj.getTime())) {
+            monthKey = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+            shortMonth = dateObj.toLocaleDateString('id-ID', { month: 'short', year: '2-digit' });
+            longMonth = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+          }
+        }
+
+        if (!monthKey) {
+          const bNum = w.bulan || Math.ceil((idx + 1) / 4);
+          monthKey = `B-${bNum}`;
+          shortMonth = `Bln ${bNum}`;
+          longMonth = `Bulan Ke-${bNum}`;
+        }
+
+        monthMap[monthKey] = {
+          ...w,
+          xAxisLabel: shortMonth,
+          tooltipLabel: `Bulan: ${longMonth}`,
+          rencanaKumulatif: w.rencanaKumulatif,
+          realisasiKumulatif: w.realisasiKumulatif !== null ? w.realisasiKumulatif : (monthMap[monthKey]?.realisasiKumulatif ?? null),
+          deviasiKumulatif: w.deviasiKumulatif !== null ? w.deviasiKumulatif : (monthMap[monthKey]?.deviasiKumulatif ?? null),
         };
       });
       return Object.values(monthMap);
-    } 
-    
-    const weekMap = {};
-    filtered.forEach(d => {
-      const wKey = d.mingguKe || 0;
-      if (wKey === 0) return; 
-      weekMap[wKey] = { 
-        ...d, xAxisLabel: `M-${wKey}`, tooltipLabel: `Minggu Ke-${wKey}`,
-        rencanaKumulatif: d.targetKumulatifMingguan !== null ? d.targetKumulatifMingguan : (weekMap[wKey]?.rencanaKumulatif ?? null),
-        realisasiKumulatif: d.realisasiKumulatif !== null ? d.realisasiKumulatif : (weekMap[wKey]?.realisasiKumulatif ?? null),
-        deviasiKumulatif: d.deviasiKumulatif !== null ? d.deviasiKumulatif : (weekMap[wKey]?.deviasiKumulatif ?? null)
-      };
-    });
-    return Object.values(weekMap);
+    }
 
-  }, [fullChartData, startDateFilter, endDateFilter, filterMode]);
+    // Default: Skala Mingguan langsung menggunakan data Jumlah Rencana Kumulatif & Jumlah Realisasi Kumulatif
+    return weeklyCumulativeChartData;
+  }, [weeklyCumulativeChartData, fullChartData, startDateFilter, endDateFilter, filterMode]);
 
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const dataInfo = payload[0].payload;
       return (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3.5 rounded-xl shadow-xl text-xs z-50 min-w-[150px]">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3.5 rounded-xl shadow-xl text-xs z-50 min-w-[160px]">
           <p className="font-extrabold text-slate-800 dark:text-white mb-2 pb-2 border-b border-slate-200 dark:border-slate-700">{dataInfo.tooltipLabel}</p>
           {payload.map((entry, index) => {
             if (entry.value === undefined || entry.value === null) return null; 
             const num = getSafeFloat(entry.value);
-            let valText = `${Number.isInteger(num) ? num.toFixed(2) : parseFloat(num.toFixed(4))}%`;
+            let valText = `${num.toFixed(4)}%`;
             if (entry.dataKey === 'deviasiKumulatif') valText = entry.value > 0 ? `+${valText}` : valText;
             return (
               <div key={index} className="flex justify-between items-center gap-6 font-medium mb-1.5 last:mb-0">
@@ -514,7 +566,6 @@ export default function KurvaS({ selectedProject }) {
     <div className="w-full space-y-3.5 pb-2 relative animate-fade-in flex flex-col">
       <style>{`.custom-scrollbar::-webkit-scrollbar { height: 5px; width: 5px; } .custom-scrollbar::-webkit-scrollbar-track { background: transparent; } .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; } .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #475569; } .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #f59e0b; cursor: pointer;}`}</style>
 
-      {/* HEADER UTAMA BERISI PROJECT NAVIGATION */}
       <HeaderKurva
         project={project} projectId={projectId} isEditMode={isEditMode} isLoading={isLoading} isSaving={isSaving} isScheduleEmpty={isScheduleEmpty} canCreateData={canCreateData} canExportData={canExportData} isGuest={isGuest} showFilterPopup={showFilterPopup} setShowFilterPopup={setShowFilterPopup} filterRef={filterRef} tempFilterMode={tempFilterMode} setTempFilterMode={setTempFilterMode} startDateFilter={startDateFilter} setStartDateFilter={setStartDateFilter} endDateFilter={endDateFilter} setEndDateFilter={setEndDateFilter} projectBounds={projectBounds} handleApplyFilter={handleApplyFilter} applyFilter={applyFilter} getActiveFilterLabel={getActiveFilterLabel} filterMode={filterMode} handleBatalEdit={handleBatalEdit} toggleEditMode={() => setIsEditMode(true)} setSaveModal={setSaveModal} setExportModal={setExportModal} openWeekModal={openWeekModal}
       />
@@ -558,7 +609,7 @@ export default function KurvaS({ selectedProject }) {
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData} margin={{ top: 15, right: 15, left: -25, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" vertical={false} className="dark:stroke-slate-700" />
-                      <XAxis dataKey="xAxisLabel" stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} className="dark:stroke-slate-400" />
+                      <XAxis dataKey="xAxisLabel" interval={chartData.length <= 24 ? 0 : 'preserveStartEnd'} stroke="#64748b" fontSize={9} tickLine={false} axisLine={false} className="dark:stroke-slate-400" />
                       <YAxis stroke="#64748b" fontSize={11} domain={['auto', 100]} unit="%" tickLine={false} axisLine={false} className="dark:stroke-slate-400" />
                       <Tooltip content={<CustomTooltip />} />
                       {showPlanCurve && <Line type="monotone" dataKey="rencanaKumulatif" name="Rencana" stroke="#3b82f6" strokeWidth={3} dot={{ r: 3, strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls={true} />}
