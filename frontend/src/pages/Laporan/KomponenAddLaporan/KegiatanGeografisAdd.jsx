@@ -13,21 +13,18 @@ export default function KegiatanGeografisAdd({
   grandTotalRab, cumulativeActuals
 }) {
 
-  // --- HELPER PERHITUNGAN SISA BOBOT & VOLUME (SINKRON 4 DESIMAL DENGAN SCHEDULE) ---
   const getRemainingMetrics = (rabItem) => {
     if (!rabItem || !grandTotalRab || grandTotalRab <= 0) {
       return { sisaVol: 0, sisaBobot: 0, isCompleted: false };
     }
 
     const targetVol = parseFloat(rabItem.volume || 0);
-    // Bulatkan targetBobot ke 4 desimal agar sama persis dengan perhitungan di Kurva S / Schedule
     const rawTargetBobot = (parseFloat(rabItem.total_harga || 0) / grandTotalRab) * 100;
     const targetBobot = Number(rawTargetBobot.toFixed(4));
     const accumBobot = Number(parseFloat(cumulativeActuals?.[rabItem.id] || 0).toFixed(4));
 
     const sisaBobot = Math.max(0, Number((targetBobot - accumBobot).toFixed(4)));
 
-    // Jika sisa bobot sudah habis (<= 0.0001), maka sisa volume otomatis 0 (Selesai 100%)
     if (targetBobot > 0 && sisaBobot <= 0.0001) {
       return { sisaVol: 0, sisaBobot: 0, isCompleted: true };
     }
@@ -39,7 +36,6 @@ export default function KegiatanGeografisAdd({
     return { sisaVol, sisaBobot, isCompleted };
   };
 
-  // Filter hanya pekerjaan yang belum mencapai batas maksimal
   const filterAvailableOptions = (options) => {
     if (!options || !Array.isArray(options)) return [];
     return options.filter(opt => !getRemainingMetrics(opt).isCompleted);
@@ -119,7 +115,13 @@ export default function KegiatanGeografisAdd({
         </label>
         <button 
           type="button" 
-          onClick={() => setKegiatanItems([...kegiatanItems, { id: Date.now(), rab_item_id: null, uraian: '', sta_awal: '', sta_akhir: '', volume: '', satuan: '', persentase: '' }])} 
+          onClick={() => {
+            if (kegiatanItems.length < 20) {
+              setKegiatanItems([...kegiatanItems, { id: Date.now(), rab_item_id: null, uraian: '', sta_awal: '', sta_akhir: '', volume: '', satuan: '', persentase: '' }]);
+            } else {
+              alert("Maksimal 20 Kegiatan per laporan.");
+            }
+          }} 
           className="text-[10px] bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 border border-amber-200 dark:border-amber-500/30 transition-colors shadow-sm"
         >
           <Plus className="w-3.5 h-3.5" /> Tambah

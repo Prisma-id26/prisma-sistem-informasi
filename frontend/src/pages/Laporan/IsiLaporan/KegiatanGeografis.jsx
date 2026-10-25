@@ -132,10 +132,10 @@ export default function KegiatanGeografis({
           <button 
             type="button" 
             onClick={() => {
-              if (editForm.activities.length < 6) {
+              if (editForm.activities.length < 20) {
                 setEditForm({...editForm, activities: [...editForm.activities, { id: Date.now(), rab_item_id: null, uraian: '', sta_awal: '', sta_akhir: '', volume: '', satuan: '', persentase: '' }]});
               } else {
-                alert("Maksimal 6 Kegiatan per laporan.");
+                alert("Maksimal 20 Kegiatan per laporan.");
               }
             }} 
             className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold rounded-lg border border-amber-200 dark:border-amber-500/30 transition-all animate-fade-in z-20 shadow-sm"
